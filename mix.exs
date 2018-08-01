@@ -1,28 +1,62 @@
 defmodule Defconst.MixProject do
   use Mix.Project
 
+  @version "0.1.0"
+
   def project do
     [
       app: :defconst,
-      version: "0.1.0",
+      deps: deps(),
       elixir: "~> 1.6",
+      elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
-      deps: deps()
+      version: @version,
+
+      # Hex
+      description: description(),
+      package: package(),
+
+      # Docs
+      docs: [
+        extras: ["README.md"],
+        main: Defconst
+      ],
+      homepage_url: "https://github.com/aram356/defconst",
+      name: "defconst",
+      source_url: "https://github.com/aram356/defconst"
     ]
   end
 
-  # Run "mix help compile.app" to learn about applications.
   def application do
     [
       extra_applications: [:logger]
     ]
   end
 
-  # Run "mix help deps" to learn about dependencies.
+  def description do
+    """
+     This library implements macros to define contants and enums that can be used in guards
+    """
+  end
+
   defp deps do
-    [
-      # {:dep_from_hexpm, "~> 0.3.0"},
-      # {:dep_from_git, git: "https://github.com/elixir-lang/my_dep.git", tag: "0.1.0"},
-    ]
+    []
+  end
+
+  # Specifies which paths to compile per environment.
+  defp elixirc_paths(_), do: ["lib"]
+
+  defp package do
+    %{
+      files: [
+        "lib",
+        "mix.exs",
+        "README.md",
+        "LICENSE"
+      ],
+      maintainers: ["Aram Grigoryan"],
+      licenses: ["Apache-2.0"],
+      links: %{"GitHub" => "https://github.com/aram356/defconst"}
+    }
   end
 end
