@@ -16,7 +16,6 @@ defmodule DefconstTest do
       def guard_fun(x) when x == TestConstType.one(), do: x
     end
 
-
     test "value" do
       require TestConstType
 
@@ -35,7 +34,7 @@ defmodule DefconstTest do
     end
   end
 
-  describe "enum with default values" do      
+  describe "enum with default integer values" do
     defmodule TestEnumType1 do
       use Defconst
 
@@ -71,7 +70,7 @@ defmodule DefconstTest do
     end
   end
 
-  describe "enum with explicit values" do
+  describe "enum with explicit integer values" do
     defmodule TestEnumType2 do
       use Defconst
 
@@ -104,6 +103,71 @@ defmodule DefconstTest do
       assert_raise FunctionClauseError, fn ->
         TestEnumType2Guard.guard_fun(TestEnumType2.nine())
       end
+    end
+  end
+
+  describe "enum with explicit string values" do
+    defmodule TestEnumType3 do
+      use Defconst
+
+      defenum [
+        {:one, "one"},
+        {:nine, "nine"},
+        :ten
+      ]
+    end
+
+    defmodule TestEnumType3Guard do
+      require TestEnumType3
+
+      def guard_fun(x) when x == TestEnumType3.one(), do: x
+    end
+
+    test "value" do
+      require TestEnumType3
+
+      assert TestEnumType3.one() == "one"
+      assert TestEnumType3.nine() == "nine"
+      assert TestEnumType3.ten() == "nine1"
+    end
+
+    test "guard" do
+      require TestEnumType3
+
+      assert TestEnumType3Guard.guard_fun(TestEnumType3.one()) == TestEnumType3.one()
+
+      assert_raise FunctionClauseError, fn ->
+        TestEnumType3Guard.guard_fun(TestEnumType3.nine())
+      end
+    end
+  end
+
+  describe "enum with explicit generator" do
+    defmodule TestGenerator1 do
+      @behaviour Defconst.Enum.Generator
+
+      def next_value(previous_value) do
+        previous_value <> previous_value
+      end
+    end
+
+    defmodule TestEnumType4 do
+      use Defconst
+
+      defenum [
+                {:one, "one"},
+                {:nine, "nine"},
+                :ten
+              ],
+              TestGenerator1
+    end
+
+    test "value" do
+      require TestEnumType4
+
+      assert TestEnumType4.one() == "one"
+      assert TestEnumType4.nine() == "nine"
+      assert TestEnumType4.ten() == "ninenine"
     end
   end
 end

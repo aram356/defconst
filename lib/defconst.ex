@@ -46,13 +46,13 @@ defmodule Defconst do
   ## Examples:
     iex> defmodule ConstType do
     ...>   use Defconst
-    ...> 
+    ...>
     ...>   defconst :one, 1
     ...>   defconst :two, 2
     ...> end
     iex> defmodule ConstUse do
     ...>   require ConstType
-    ...> 
+    ...>
     ...>   def const_value(x) do
     ...>     case x do
     ...>       ConstType.one -> "one"
@@ -72,8 +72,10 @@ defmodule Defconst do
 
   """
   defmacro defconst(name, value) do
+    var = Macro.var(name, __MODULE__)
+
     quote do
-      defmacro unquote(name)(), do: unquote(value)
+      defmacro unquote(var), do: unquote(value)
     end
   end
 
@@ -92,7 +94,7 @@ defmodule Defconst do
     ...> end
     iex> defmodule EnumUse1 do
     ...>   require EnumType1
-    ...> 
+    ...>
     ...>   def enum_value(x) do
     ...>     case x do
     ...>       EnumType1.zero -> "zero"
@@ -123,7 +125,7 @@ defmodule Defconst do
     ...> end
     iex> defmodule EnumUse2 do
     ...>   require EnumType2
-    ...> 
+    ...>
     ...>   def enum_value(x) do
     ...>     case x do
     ...>       EnumType2.zero -> "zero"
@@ -144,9 +146,15 @@ defmodule Defconst do
     "ten"
 
   """
-  defmacro defenum(constants) do
+
+  defmacro defenum(constant, quoted_generator \\ quote(do: Defconst.Enum.DefaultGenerator))
+
+  defmacro defenum(constants, quoted_generator) do
+    # Expand quoted module
+    generator = Macro.expand(quoted_generator, __CALLER__)
+
     constants
-    |> normalize
+    |> normalize(generator)
     |> Enum.map(fn {name, value} ->
       quote do
         defconst(unquote(name), unquote(value))
@@ -154,13 +162,17 @@ defmodule Defconst do
     end)
   end
 
-  defp normalize(constants) do
-    {result, _} =
-      Enum.reduce(constants, {[], 0}, fn
-        {_name, value} = constant, {accumulator, _index} -> {[constant | accumulator], value + 1}
-        name, {accumulator, index} -> {[{name, index} | accumulator], index + 1}
-      end)
+  defp normalize(constants, generator) do
+    {result, _} = Enum.reduce(constants, {[], 0}, &normalize_contant(generator, &1, &2))
 
     result
+  end
+
+  defp normalize_contant(generator, {_name, value} = constant, {accumulator, _index}) do
+    {[constant | accumulator], generator.next_value(value)}
+  end
+
+  defp normalize_contant(generator, name, {accumulator, value}) do
+    {[{name, value} | accumulator], generator.next_value(value)}
   end
 end
