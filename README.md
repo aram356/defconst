@@ -1,6 +1,6 @@
 # Defconst
 
-This package provides `defconst` macro for defining a single constant and `defenum` macro for defining a list of enumerated cosntant values.  The defined contants and enumerated constants are referencable in any expression as well as in guards statements.
+This package provides `defconst` macro for defining a single constant and `defenum` macro for defining a list of enumerated constant values.  The defined constants and enumerated constants are referencable in any expression as well as in guards statements.
 
 ## Installation
 
@@ -22,9 +22,9 @@ be found at [https://hexdocs.pm/defconst](https://hexdocs.pm/defconst).
 
 ### defconst
 
-Define `ConstType` module with constants
+Define `ConstType1` module with constants
 ```elixir
-defmodule ConstType do
+defmodule ConstType1 do
   use Defconst
 
   defconst :one, 1
@@ -32,20 +32,20 @@ defmodule ConstType do
 end
 ```
 
-Use `ConstType` module
+Use `ConstType1` module
 
 ```elixir
-defmodule ConstUse do
-  require ConstType
+defmodule ConstUse1 do
+  require ConstType1
 
   def const_value(x) do
     case x do
-      ConstType.one -> "one"
-      ConstType.two -> "two"
+      ConstType1.one -> "one"
+      ConstType1.two -> "two"
     end
   end
 
-  def const_guard(x) when x == ConstType.two do
+  def const_guard(x) when x == ConstType1.two do
     "two"
   end
 end
@@ -53,7 +53,7 @@ end
 
 ### defenum
 
-Define `EnumType` module with default initial value to be 0
+Define `EnumType1` module with default values
 ```elixir
 defmodule EnumType1 do
   use Defconst
@@ -65,8 +65,8 @@ defmodule EnumType1 do
   ]
 end
 ```
-Use `EnumType` module
 
+Use `EnumType1` module
 ```elixir
 defmodule EnumUse1 do
   require EnumType1
@@ -85,4 +85,39 @@ defmodule EnumUse1 do
   end
 end
 ```
+Define `EnumType2` with specific values
+```elixir
+defmodule EnumType2 do
+  use Defconst
 
+  defenum [
+    {:one, 1},
+    {:nine, 9},
+    {:ten, "ten"}
+  ]
+end
+```
+
+Define `EnumType3` using `EnumGenerator3`
+```elixir
+defmodule EnumGenerator3 do
+  @behaviour Defconst.Enum.Generator
+
+  def next_value(previous_value) do
+    previous_value <> previous_value
+  end
+end
+```
+
+```elixir
+defmodule TestEnumType4 do
+  use Defconst
+
+  defenum [
+            {:one, "one"},
+            {:nine, "nine"},
+            :ten
+          ],
+          EnumGenerator3
+end
+```
