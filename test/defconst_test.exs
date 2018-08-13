@@ -146,7 +146,7 @@ defmodule DefconstTest do
     defmodule TestGenerator1 do
       @behaviour Defconst.Enum.Generator
 
-      def next_value(previous_value) do
+      def next_value(_constant_name, previous_value) do
         previous_value <> previous_value
       end
     end

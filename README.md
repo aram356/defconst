@@ -14,10 +14,6 @@ def deps do
 end
 ```
 
-Documentation can be generated with [ExDoc](https://github.com/elixir-lang/ex_doc)
-and published on [HexDocs](https://hexdocs.pm). Once published, the docs can
-be found at [https://hexdocs.pm/defconst](https://hexdocs.pm/defconst).
-
 ## Usage
 
 ### defconst
@@ -103,7 +99,7 @@ Define `EnumType3` using `EnumGenerator3`
 defmodule EnumGenerator3 do
   @behaviour Defconst.Enum.Generator
 
-  def next_value(previous_value) do
+  def next_value(_constant_name, previous_value) do
     previous_value <> previous_value
   end
 end

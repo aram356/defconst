@@ -168,11 +168,11 @@ defmodule Defconst do
     result
   end
 
-  defp normalize_contant(generator, {_name, value} = constant, {accumulator, _index}) do
-    {[constant | accumulator], generator.next_value(value)}
+  defp normalize_contant(generator, {constant_name, value} = constant, {accumulator, _index}) do
+    {[constant | accumulator], generator.next_value(constant_name, value)}
   end
 
-  defp normalize_contant(generator, name, {accumulator, value}) do
-    {[{name, value} | accumulator], generator.next_value(value)}
+  defp normalize_contant(generator, constant_name, {accumulator, value}) do
+    {[{constant_name, value} | accumulator], generator.next_value(constant_name, value)}
   end
 end

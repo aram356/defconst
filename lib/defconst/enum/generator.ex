@@ -3,5 +3,5 @@ defmodule Defconst.Enum.Generator do
   Callbacks definition for generating enum values
   """
 
-  @callback next_value(any()) :: any()
+  @callback next_value(atom(), any()) :: any()
 end

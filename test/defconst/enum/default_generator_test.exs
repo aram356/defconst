@@ -6,11 +6,11 @@ defmodule Defconst.Enum.DefaultGeneratorTest do
 
   describe "next_value" do
     test "integer" do
-      assert DefaultGenerator.next_value(100) == 101
+      assert DefaultGenerator.next_value(:hundred, 99) == 100
     end
 
     test "binary" do
-      assert DefaultGenerator.next_value("hello") == "hello1"
+      assert DefaultGenerator.next_value(:bye, "hello") == "hello1"
     end
   end
 end
