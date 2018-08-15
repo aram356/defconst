@@ -9,7 +9,7 @@ Defconst can be installed by adding `defconst` to your list of dependencies in `
 ```elixir
 def deps do
   [
-    {:defconst, "~> 0.1.0"}
+    {:defconst, "~> 0.2.0"}
   ]
 end
 ```
@@ -106,7 +106,7 @@ end
 ```
 
 ```elixir
-defmodule TestEnumType4 do
+defmodule TestEnumType3 do
   use Defconst
 
   defenum [
