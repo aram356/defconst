@@ -9,9 +9,9 @@ defmodule Defconst.Enum.DefaultGenerator do
   @doc """
   Next value when previous value is integer
 
-    ## Examples:
-    iex> Defconst.Enum.DefaultGenerator.next_value(:three, 2)
-    3
+  ## Examples:
+      iex> Defconst.Enum.DefaultGenerator.next_value(:three, 2)
+      3
 
   """
   @spec next_value(atom(), Integer.t()) :: Integer.t()
@@ -22,9 +22,9 @@ defmodule Defconst.Enum.DefaultGenerator do
   @doc """
   Next value when  previous value is binary
 
-    ## Examples:
-    iex> Defconst.Enum.DefaultGenerator.next_value(:bye, "hello")
-    "hello1"
+  ## Examples:
+      iex> Defconst.Enum.DefaultGenerator.next_value(:bye, "hello")
+      "hello1"
 
   """
   @spec next_value(atom(), String.t()) :: String.t()
