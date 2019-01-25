@@ -1,7 +1,7 @@
 defmodule Defconst.MixProject do
   use Mix.Project
 
-  @version "0.2.1"
+  @version "0.2.2"
 
   def project do
     [
@@ -15,7 +15,6 @@ defmodule Defconst.MixProject do
       # Hex
       description: description(),
       package: package(),
-
       # Docs
       docs: [
         extras: ["README.md"],
@@ -40,7 +39,7 @@ defmodule Defconst.MixProject do
   end
 
   defp deps do
-    [{:ex_doc, "~> 0.18.0", only: :dev, runtime: false}]
+    [{:ex_doc, "~> 0.19.0", only: :dev, runtime: false}]
   end
 
   # Specifies which paths to compile per environment.
