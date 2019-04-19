@@ -36,8 +36,26 @@ defmodule Defconst do
 
   @doc false
   defmacro __using__(_opts) do
+    caller_module = __CALLER__.module
+
     quote do
-      import Defconst
+      import unquote(__MODULE__)
+
+      Module.register_attribute(unquote(caller_module), :constants, accumulate: true)
+
+      @before_compile unquote(__MODULE__)
+    end
+  end
+
+  @doc false
+  defmacro __before_compile__(env) do
+    constants =
+      env.module
+      |> Module.get_attribute(:constants)
+      |> Enum.reverse()
+
+    quote do
+      def constants(), do: unquote(constants)
     end
   end
 
@@ -66,6 +84,8 @@ defmodule Defconst do
       ...>     "two"
       ...>   end
       ...> end
+      iex> ConstType.constants
+      [{:one, 1}, {:two, 2}]
       iex> ConstUse.const_value(1)
       "one"
       iex> ConstUse.const_guard(2)
@@ -73,9 +93,12 @@ defmodule Defconst do
 
   """
   defmacro defconst(name, value) do
+    caller_module = __CALLER__.module
     var = Macro.var(name, __MODULE__)
 
     quote do
+      Module.put_attribute(unquote(caller_module), :constants, {unquote(name), unquote(value)})
+
       defmacro unquote(var), do: unquote(value)
     end
   end
@@ -109,6 +132,8 @@ defmodule Defconst do
       ...>     "two"
       ...>   end
       ...> end
+      iex> EnumType1.constants
+      [zero: 0, one: 1, two: 2]
       iex> EnumUse1.enum_value(1)
       "one"
       iex> EnumUse1.enum_guard(2)
@@ -141,6 +166,8 @@ defmodule Defconst do
       ...>     "ten"
       ...>   end
       ...> end
+      iex> EnumType2.constants
+      [zero: "zero", one: 1, nine: 9, ten: 10]
       iex> EnumUse2.enum_value(1)
       "one"
       iex> EnumUse2.enum_guard(10)
@@ -156,6 +183,7 @@ defmodule Defconst do
 
     constants
     |> normalize(generator)
+    |> Enum.reverse()
     |> Enum.map(fn {name, value} ->
       quote do
         defconst(unquote(name), unquote(value))
