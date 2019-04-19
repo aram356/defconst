@@ -32,6 +32,15 @@ defmodule DefconstTest do
         TestConstGuard.guard_fun(TestConstType.two())
       end
     end
+
+    test "constants" do
+      require TestConstType
+
+      assert TestConstType.constants() == [
+               {:one, 1},
+               {:two, 2}
+             ]
+    end
   end
 
   describe "enum with default integer values" do
@@ -67,6 +76,16 @@ defmodule DefconstTest do
       assert_raise FunctionClauseError, fn ->
         TestEnumType1Guard.guard_fun(TestEnumType1.two())
       end
+    end
+
+    test "constants" do
+      require TestEnumType1
+
+      assert TestEnumType1.constants() == [
+               {:zero, 0},
+               {:one, 1},
+               {:two, 2}
+             ]
     end
   end
 
@@ -104,6 +123,16 @@ defmodule DefconstTest do
         TestEnumType2Guard.guard_fun(TestEnumType2.nine())
       end
     end
+
+    test "constants" do
+      require TestEnumType2
+
+      assert TestEnumType2.constants() == [
+               {:one, 1},
+               {:nine, 9},
+               {:ten, 10}
+             ]
+    end
   end
 
   describe "enum with explicit string values" do
@@ -140,6 +169,16 @@ defmodule DefconstTest do
         TestEnumType3Guard.guard_fun(TestEnumType3.nine())
       end
     end
+
+    test "constants" do
+      require TestEnumType3
+
+      assert TestEnumType3.constants() == [
+               {:one, "one"},
+               {:nine, "nine"},
+               {:ten, "nine1"}
+             ]
+    end
   end
 
   describe "enum with explicit generator" do
@@ -168,6 +207,16 @@ defmodule DefconstTest do
       assert TestEnumType4.one() == "one"
       assert TestEnumType4.nine() == "nine"
       assert TestEnumType4.ten() == "ninenine"
+    end
+
+    test "constants" do
+      require TestEnumType4
+
+      assert TestEnumType4.constants() == [
+               {:one, "one"},
+               {:nine, "nine"},
+               {:ten, "ninenine"}
+             ]
     end
   end
 end
