@@ -41,6 +41,20 @@ defmodule DefconstTest do
                {:two, 2}
              ]
     end
+
+    test "constant_of" do
+      require TestConstType
+
+      assert TestConstType.constant_of(1) == :one
+      assert TestConstType.constant_of(2) == :two
+    end
+
+    test "value_of" do
+      require TestConstType
+
+      assert TestConstType.value_of(:one) == 1
+      assert TestConstType.value_of(:two) == 2
+    end
   end
 
   describe "enum with default integer values" do
@@ -86,6 +100,14 @@ defmodule DefconstTest do
                {:one, 1},
                {:two, 2}
              ]
+    end
+
+    test "value_of" do
+      require TestEnumType1
+
+      assert TestEnumType1.value_of(:zero) == 0
+      assert TestEnumType1.value_of(:one) == 1
+      assert TestEnumType1.value_of(:two) == 2
     end
   end
 

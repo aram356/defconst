@@ -54,8 +54,78 @@ defmodule Defconst do
       |> Module.get_attribute(:constants)
       |> Enum.reverse()
 
+    constant_map = Enum.into(constants, %{})
+
+    value_map =
+      Enum.reduce(constants, %{}, fn {constant, value}, map ->
+        member = Map.get(map, value)
+
+        new_member =
+          case member do
+            nil -> [constant]
+            _ -> member ++ [constant]
+          end
+
+        Map.put(map, value, new_member)
+      end)
+
     quote do
+      def _constants(), do: unquote(constants)
+
+      @doc """
+      Returns all constants as list of tuples
+
+      ## Examples:
+          iex> #{__MODULE__}.constants
+          #{unquote(constants) |> Kernel.inspect()}
+
+      """
       def constants(), do: unquote(constants)
+
+      @doc """
+      Returns constant for specified value
+
+      ## Parameters:
+        * value: value of a constant
+
+      ## Examples:
+          iex> #{__MODULE__}.constant_of(#{
+              unquote(constants)
+              |> Keyword.values()
+              |> List.first()
+              |> Kernel.inspect()
+            })
+          #{unquote(constants) |> Keyword.keys() |> List.first() |> Kernel.inspect()}
+
+      """
+      def constant_of(value) do
+        constants = unquote(Macro.escape(value_map))[value]
+
+        case constants do
+          [constant] -> constant
+          _ -> constants
+        end
+      end
+
+      @doc """
+      Returns value for specified constant
+
+      ## Parameters:
+        * constant: defined constant
+
+      ## Examples:
+          iex> #{__MODULE__}.constant_of(#{
+              unquote(constants)
+              |> Keyword.keys()
+              |> List.first()
+              |> Kernel.inspect()
+            })
+          #{unquote(constants) |> Keyword.values() |> List.first() |> Kernel.inspect()}
+
+      """
+      def value_of(constant) do
+        unquote(Macro.escape(constant_map))[constant]
+      end
     end
   end
 
@@ -99,12 +169,19 @@ defmodule Defconst do
     quote do
       Module.put_attribute(unquote(caller_module), :constants, {unquote(name), unquote(value)})
 
+      @doc """
+      Returns #{unquote(value)}
+
+      ## Examples:
+          iex> #{__MODULE__}.#{unquote(name)}()
+          #{unquote(value) |> Kernel.inspect()}
+      """
       defmacro unquote(var), do: unquote(value)
     end
   end
 
   @doc """
-  Define enum
+  Defines an enum with specified constant names and optional values
 
   ## Examples:
       iex> defmodule EnumType1 do
@@ -174,8 +251,7 @@ defmodule Defconst do
       "ten"
 
   """
-
-  defmacro defenum(constant, quoted_generator \\ quote(do: Defconst.Enum.DefaultGenerator))
+  defmacro defenum(constants, quoted_generator \\ quote(do: Defconst.Enum.DefaultGenerator))
 
   defmacro defenum(constants, quoted_generator) do
     # Expand quoted module
@@ -201,7 +277,7 @@ defmodule Defconst do
     {[constant | accumulator], generator.next_value(constant_name, value)}
   end
 
-  defp normalize_contant(generator, constant_name, {accumulator, value}) do
-    {[{constant_name, value} | accumulator], generator.next_value(constant_name, value)}
+  defp normalize_contant(generator, constant_name, {accumulator, index}) do
+    {[{constant_name, index} | accumulator], generator.next_value(constant_name, index)}
   end
 end
