@@ -1,7 +1,7 @@
 defmodule Defconst.MixProject do
   use Mix.Project
 
-  @version "0.2.3"
+  @version "0.2.4"
 
   def project do
     [
@@ -15,6 +15,7 @@ defmodule Defconst.MixProject do
       # Hex
       description: description(),
       package: package(),
+
       # Docs
       docs: [
         extras: ["README.md"],
@@ -34,7 +35,7 @@ defmodule Defconst.MixProject do
 
   def description do
     """
-     This library implements macros to define contants and enums that can be used in guards
+    This library implements macros to define contants and enums that can be used in guards
     """
   end
 
