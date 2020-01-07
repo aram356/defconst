@@ -90,11 +90,11 @@ defmodule Defconst do
 
       ## Examples:
           iex> #{__MODULE__}.constant_of(#{
-              unquote(constants)
-              |> Keyword.values()
-              |> List.first()
-              |> Kernel.inspect()
-            })
+        unquote(constants)
+        |> Keyword.values()
+        |> List.first()
+        |> Kernel.inspect()
+      })
           #{unquote(constants) |> Keyword.keys() |> List.first() |> Kernel.inspect()}
 
       """
@@ -115,11 +115,11 @@ defmodule Defconst do
 
       ## Examples:
           iex> #{__MODULE__}.constant_of(#{
-              unquote(constants)
-              |> Keyword.keys()
-              |> List.first()
-              |> Kernel.inspect()
-            })
+        unquote(constants)
+        |> Keyword.keys()
+        |> List.first()
+        |> Kernel.inspect()
+      })
           #{unquote(constants) |> Keyword.values() |> List.first() |> Kernel.inspect()}
 
       """
