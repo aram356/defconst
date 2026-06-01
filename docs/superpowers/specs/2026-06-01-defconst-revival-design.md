@@ -15,13 +15,15 @@ toolchain, dependencies, and config have aged out.
 2020-01-08). That release does **not** live on `master` — it sits on an unmerged branch
 `aram356/udpdate_ex_doc` (commit `7b91238`), two commits ahead of `master`. The
 `master..0.2.5` diff is small: a whitespace-only reformat of two doctest `@doc` heredocs,
-the version bump to `0.2.5`, and `ex_doc 0.20.2 → 0.21.2`. So `master` is **behind** what
+the version bump to `0.2.5`, and an `ex_doc` resolution bump to `0.21.2` **in `mix.lock`
+only** — the `mix.exs` constraint stays `~> 0.20`. So `master` is **behind** what
 is published. **All three introspection functions (`constants/0`, `constant_of/1`,
 `value_of/1`) already shipped in 0.2.5** — they are NOT new in 0.3.0.
 
 Aging issues to address:
 - `config/config.exs` uses `use Mix.Config`, deprecated since Elixir 1.9.
-- Dev dependencies (`ex_doc 0.21`, `earmark`, `makeup`, `nimble_parsec`) are from 2019–2020
+- Dev dependencies (`ex_doc` constraint `~> 0.20`, lock-resolved 0.21.2; plus `earmark`,
+  `makeup`, `nimble_parsec`) are from 2019–2020
   and will not build docs on modern OTP.
 - No CI, no `.tool-versions`, no git tags.
 - README tells consumers to depend on `~> 0.2.2` (version drift).
@@ -42,10 +44,10 @@ so consumers are unaffected at runtime today. The work is low-risk modernization
 | Intent | Revive & prepare for republish (broadest scope) |
 | Release version | `0.3.0` |
 | Changelog baseline | "since **0.2.5**" (the published version) |
-| Reconcile 0.2.5 | **Merge `aram356/udpdate_ex_doc` into `master` first**, then rebase the work branch on top so the repo matches Hex before layering 0.3.0 |
-| Support floor | **Raise to `elixir: "~> 1.15"`** (honest, CI-verified minimum) |
+| Reconcile 0.2.5 | Bring `master` up to published 0.2.5 (`aram356/udpdate_ex_doc`) **via a PR**, not a direct push, then base the work branch on it. Locally fast-forward only to base the work; never push `master` directly |
+| Support floor | **Keep `elixir: "~> 1.15"`**, made honest by testing 1.15 and 1.16 in CI |
 | Verification | Install Erlang/OTP locally **and** add CI (both) |
-| CI matrix | Elixir 1.17/1.18/1.19 with OTP **26/27/28** (pairs: 1.17/26, 1.18/27, 1.19/28) |
+| CI matrix | Elixir 1.15/1.16/1.17/1.18/1.19 (pairs: 1.15/26, 1.16/26, 1.17/26, 1.18/27, 1.19/28) |
 | Local OTP pin | Pin a real **OTP ≥ 28.1** (Elixir 1.19 requires 28.1+); no placeholder version |
 | `config/config.exs` | Delete (pure-macro lib has no runtime config) |
 | `constant_of` return | Keep behavior; **document AND add tests** (list / `nil` paths) |
@@ -59,12 +61,17 @@ so consumers are unaffected at runtime today. The work is low-risk modernization
 Each workstream is independently verifiable. WS0 reconciles the published baseline; WS1
 establishes the green toolchain; WS2–6 are the changes; WS7 is delivery; WS8 is the gated publish.
 
-### 0. Reconcile published 0.2.5 onto master
-- Fetch and fast-forward-merge `origin/aram356/udpdate_ex_doc` into `master` so `master`
-  reflects published 0.2.5.
-- Rebase the `revive-and-modernize` work branch onto the updated `master`.
+### 0. Reconcile published 0.2.5 onto master (via PR)
+- Locally fast-forward `master` to `origin/aram356/udpdate_ex_doc` **only to base the work
+  branch on the published 0.2.5 state** — do not push `master` directly (respects branch
+  protection / the PR delivery model).
+- Reconcile `master` on the remote through a PR: either merge the existing
+  `aram356/udpdate_ex_doc` branch via its own small PR, or fold those two commits into the
+  revival PR and call out that `master` was behind Hex.
+- Rebase the `revive-and-modernize` work branch onto the reconciled 0.2.5 baseline.
 
-**Verify:** `git show master:mix.exs | grep @version` shows `0.2.5`; work branch rebased cleanly.
+**Verify:** local `master`/work-branch base shows `@version "0.2.5"`; reconciliation is
+delivered through a PR, not a direct `git push origin master`.
 
 ### 1. Toolchain & green baseline
 - Add asdf `erlang` plugin; install OTP ≥ 28.1; commit `.tool-versions`
@@ -82,22 +89,27 @@ establishes the green toolchain; WS2–6 are the changes; WS7 is delivery; WS8 i
 
 **Verify:** `mix test` green; `mix format --check-formatted` clean.
 
-### 3. Test `constant_of/1` contract (TDD)
+### 3. Test `constant_of/1` contract (characterization / regression)
 - Add tests: colliding values return a **list** of names; absent value returns **`nil`**.
 - Use a fixture module with duplicate constant values.
+- Note: the behavior already exists in the source, so these are characterization tests that
+  lock the documented contract in place — they are expected to pass on first run, not
+  red-green TDD.
 
-**Verify:** new tests fail first (red), pass after (green); full suite green.
+**Verify:** new tests pass; full suite green. (If any unexpectedly fail, that is a real
+behavior bug — stop and report before changing source.)
 
 ### 4. Dependency & support modernization
 - Bump `ex_doc` to `~> 0.34` (`only: :dev, runtime: false`).
-- Raise `elixir:` requirement to `~> 1.15`.
+- Keep `elixir:` requirement at `~> 1.15` (verified by the 1.15/1.16 CI jobs).
 - Delete & regenerate `mix.lock`.
 - Build docs to confirm tooling works on OTP 28.
 
 **Verify:** `mix test` green; `mix docs` builds; lockfile uses `earmark_parser`, not legacy `earmark`.
 
 ### 5. Continuous integration
-- Add `.github/workflows/ci.yml` (`erlef/setup-beam`); matrix 1.17/26, 1.18/27, 1.19/28.
+- Add `.github/workflows/ci.yml` (`erlef/setup-beam`); matrix 1.15/26, 1.16/26, 1.17/26,
+  1.18/27, 1.19/28.
 - Steps: `mix deps.get`, `mix format --check-formatted`, `mix test`.
 
 **Verify:** valid YAML; jobs pass once pushed.
