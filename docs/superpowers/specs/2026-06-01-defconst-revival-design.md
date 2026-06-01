@@ -21,6 +21,7 @@ is published. **All three introspection functions (`constants/0`, `constant_of/1
 `value_of/1`) already shipped in 0.2.5** — they are NOT new in 0.3.0.
 
 Aging issues to address:
+
 - `config/config.exs` uses `use Mix.Config`, deprecated since Elixir 1.9.
 - Dev dependencies (`ex_doc` constraint `~> 0.20`, lock-resolved 0.21.2; plus `earmark`,
   `makeup`, `nimble_parsec`) are from 2019–2020
@@ -39,22 +40,22 @@ so consumers are unaffected at runtime today. The work is low-risk modernization
 
 ## Decisions (from brainstorming + review)
 
-| Decision | Choice |
-|---|---|
-| Intent | Revive & prepare for republish (broadest scope) |
-| Release version | `0.3.0` |
-| Changelog baseline | "since **0.2.5**" (the published version) |
-| Reconcile 0.2.5 | Bring `master` up to published 0.2.5 (`aram356/udpdate_ex_doc`) **via a PR**, not a direct push, then base the work branch on it. Locally fast-forward only to base the work; never push `master` directly |
-| Support floor | **Keep `elixir: "~> 1.15"`**, made honest by testing 1.15 and 1.16 in CI |
-| Verification | Install Erlang/OTP locally **and** add CI (both) |
-| CI matrix | Elixir 1.15/1.16/1.17/1.18/1.19 (pairs: 1.15/26, 1.16/26, 1.17/26, 1.18/27, 1.19/28) |
-| Local OTP pin | Pin a real **OTP ≥ 28.1** (Elixir 1.19 requires 28.1+); no placeholder version |
-| `config/config.exs` | Delete (pure-macro lib has no runtime config) |
-| `constant_of` return | Keep behavior; **document AND add tests** (list / `nil` paths) |
-| `CHANGELOG.md` | Create **and** add to `package.files`; validate with `mix hex.build` / dry-run |
-| Commits | Targeted `git add <paths>` only; never `git add -A`; gitignore `.DS_Store` |
-| Delivery | All 0.3.0 work on a feature branch via a pull request (MR) |
-| Publish | Gated hand-off to maintainer; not done autonomously |
+| Decision             | Choice                                                                                                                                                                                                     |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Intent               | Revive & prepare for republish (broadest scope)                                                                                                                                                            |
+| Release version      | `0.3.0`                                                                                                                                                                                                    |
+| Changelog baseline   | "since **0.2.5**" (the published version)                                                                                                                                                                  |
+| Reconcile 0.2.5      | Bring `master` up to published 0.2.5 (`aram356/udpdate_ex_doc`) **via a PR**, not a direct push, then base the work branch on it. Locally fast-forward only to base the work; never push `master` directly |
+| Support floor        | **Keep `elixir: "~> 1.15"`**, made honest by testing 1.15 and 1.16 in CI                                                                                                                                   |
+| Verification         | Install Erlang/OTP locally **and** add CI (both)                                                                                                                                                           |
+| CI matrix            | Elixir 1.15/1.16/1.17/1.18/1.19 (pairs: 1.15/26, 1.16/26, 1.17/26, 1.18/27, 1.19/28)                                                                                                                       |
+| Local OTP pin        | Pin a real **OTP ≥ 28.1** (Elixir 1.19 requires 28.1+); no placeholder version                                                                                                                             |
+| `config/config.exs`  | Delete (pure-macro lib has no runtime config)                                                                                                                                                              |
+| `constant_of` return | Keep behavior; **document AND add tests** (list / `nil` paths)                                                                                                                                             |
+| `CHANGELOG.md`       | Create **and** add to `package.files`; validate with `mix hex.build` / dry-run                                                                                                                             |
+| Commits              | Targeted `git add <paths>` only; never `git add -A`; gitignore `.DS_Store`                                                                                                                                 |
+| Delivery             | All 0.3.0 work on a feature branch via a pull request (MR)                                                                                                                                                 |
+| Publish              | Gated hand-off to maintainer; not done autonomously                                                                                                                                                        |
 
 ## Workstreams
 
@@ -62,6 +63,7 @@ Each workstream is independently verifiable. WS0 reconciles the published baseli
 establishes the green toolchain; WS2–6 are the changes; WS7 is delivery; WS8 is the gated publish.
 
 ### 0. Reconcile published 0.2.5 onto master (via PR)
+
 - Locally fast-forward `master` to `origin/aram356/udpdate_ex_doc` **only to base the work
   branch on the published 0.2.5 state** — do not push `master` directly (respects branch
   protection / the PR delivery model).
@@ -74,6 +76,7 @@ establishes the green toolchain; WS2–6 are the changes; WS7 is delivery; WS8 i
 delivered through a PR, not a direct `git push origin master`.
 
 ### 1. Toolchain & green baseline
+
 - Add asdf `erlang` plugin; install OTP ≥ 28.1; commit `.tool-versions`
   (`elixir 1.19.5-otp-28` + the installed `erlang 28.1+`).
 - Run `mix deps.get && mix test` on the reconciled baseline to capture a known-green start.
@@ -81,6 +84,7 @@ delivered through a PR, not a direct `git push origin master`.
 **Verify:** `elixir --version` resolves OTP 28.1+; all tests pass before changes.
 
 ### 2. Deprecation & hygiene fixes
+
 - Delete `config/config.exs`.
 - Fix the `value_of` doc example (currently calls `constant_of`).
 - Rename `normalize_contant` → `normalize_constant`.
@@ -90,6 +94,7 @@ delivered through a PR, not a direct `git push origin master`.
 **Verify:** `mix test` green; `mix format --check-formatted` clean.
 
 ### 3. Test `constant_of/1` contract (characterization / regression)
+
 - Add tests: colliding values return a **list** of names; absent value returns **`nil`**.
 - Use a fixture module with duplicate constant values.
 - Note: the behavior already exists in the source, so these are characterization tests that
@@ -100,7 +105,10 @@ delivered through a PR, not a direct `git push origin master`.
 behavior bug — stop and report before changing source.)
 
 ### 4. Dependency & support modernization
-- Bump `ex_doc` to `~> 0.34` (`only: :dev, runtime: false`).
+
+- Bump `ex_doc` to the **latest** line `~> 0.40` (`only: :dev, runtime: false`). Because it
+  is dev-only, CI test jobs fetch with `mix deps.get --only test` and never resolve it on the
+  1.15/1.16 jobs; `mix docs` is verified locally on 1.19. This keeps the `~> 1.15` floor honest.
 - Keep `elixir:` requirement at `~> 1.15` (verified by the 1.15/1.16 CI jobs).
 - Delete & regenerate `mix.lock`.
 - Build docs to confirm tooling works on OTP 28.
@@ -108,13 +116,17 @@ behavior bug — stop and report before changing source.)
 **Verify:** `mix test` green; `mix docs` builds; lockfile uses `earmark_parser`, not legacy `earmark`.
 
 ### 5. Continuous integration
+
 - Add `.github/workflows/ci.yml` (`erlef/setup-beam`); matrix 1.15/26, 1.16/26, 1.17/26,
   1.18/27, 1.19/28.
-- Steps: `mix deps.get`, `mix format --check-formatted`, `mix test`.
+- Test matrix steps: `mix deps.get --only test`, `mix test` (no formatter — see below).
+- A separate single-version `format` job (Elixir 1.19) runs `mix format --check-formatted`,
+  since formatter output can differ between Elixir releases.
 
 **Verify:** valid YAML; jobs pass once pushed.
 
 ### 6. Release prep
+
 - Bump version to `0.3.0`.
 - Create `CHANGELOG.md` (baseline "since 0.2.5") **and** add it to `package.files`.
 - Update README: dependency hint → `~> 0.3.0`; document introspection functions.
@@ -123,11 +135,13 @@ behavior bug — stop and report before changing source.)
 **Verify:** `mix test` green; `mix hex.build` succeeds and the file list includes `CHANGELOG.md`.
 
 ### 7. Delivery (MR)
+
 - Push the branch; open a PR against `master` summarizing all workstreams; ensure CI passes.
 
 **Verify:** PR opened, CI green, ready for review/merge.
 
 ### 8. Publish (gated hand-off)
+
 - After merge: tag `v0.3.0`, push tag.
 - `mix hex.publish` requires the maintainer's Hex credentials and is irreversible and
   outward-facing. **Performed by the maintainer**, not autonomously.
@@ -135,11 +149,13 @@ behavior bug — stop and report before changing source.)
 **Verify:** tag pushed; publish performed by maintainer.
 
 ## Out of scope
+
 - Changing the `defconst`/`defenum`/generator public API or macro behavior.
 - Changing `constant_of`'s return shape (documented + tested, not changed).
 - Unrelated refactoring of the macro internals.
 
 ## Success criteria
+
 - `mix test`, `mix format --check-formatted`, `mix docs`, and `mix hex.build` all succeed
   locally on OTP 28.1+ and across the CI matrix.
 - No deprecation warnings on current Elixir.
