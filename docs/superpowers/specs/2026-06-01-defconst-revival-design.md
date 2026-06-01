@@ -1,107 +1,135 @@
 # Defconst Revival & Republish — Design Spec
 
 **Date:** 2026-06-01
-**Status:** Approved (pending spec review)
+**Status:** Approved (revised after review)
 **Goal:** Revive the dormant `defconst` Elixir library — fix deprecations, modernize
-dependencies, add CI, and publish a fresh `0.3.0` release to Hex.
+dependencies, add CI, and **prepare a `0.3.0` release for the maintainer to publish** to Hex.
 
 ## Background
 
 `defconst` is a small (~280 LOC) Elixir library providing `defconst`/`defenum` macros
-for constants and enums usable in guards. It has been dormant since May 2019. The core
-code is correct and idiomatic, but the toolchain, dependencies, and config have aged out:
+for constants and enums usable in guards. The core code is correct and idiomatic, but the
+toolchain, dependencies, and config have aged out.
 
+**Published baseline (important):** The latest version on Hex is **0.2.5** (published
+2020-01-08). That release does **not** live on `master` — it sits on an unmerged branch
+`aram356/udpdate_ex_doc` (commit `7b91238`), two commits ahead of `master`. The
+`master..0.2.5` diff is small: a whitespace-only reformat of two doctest `@doc` heredocs,
+the version bump to `0.2.5`, and `ex_doc 0.20.2 → 0.21.2`. So `master` is **behind** what
+is published. **All three introspection functions (`constants/0`, `constant_of/1`,
+`value_of/1`) already shipped in 0.2.5** — they are NOT new in 0.3.0.
+
+Aging issues to address:
 - `config/config.exs` uses `use Mix.Config`, deprecated since Elixir 1.9.
-- Dev dependencies (`ex_doc 0.20`, `earmark 1.3`, `makeup 0.8`, `nimble_parsec 0.5`)
-  are from 2018–2019 and will not build docs on modern OTP.
-- No CI, no `.tool-versions`, no git tags despite `version: 0.2.4` in `mix.exs`.
+- Dev dependencies (`ex_doc 0.21`, `earmark`, `makeup`, `nimble_parsec`) are from 2019–2020
+  and will not build docs on modern OTP.
+- No CI, no `.tool-versions`, no git tags.
 - README tells consumers to depend on `~> 0.2.2` (version drift).
-- A doc copy-paste bug and a function-name typo exist in `lib/defconst.ex`.
+- A `value_of` doc copy-paste bug and a `normalize_contant` typo exist in `lib/defconst.ex`
+  (the doc bug is present in published 0.2.5 too).
+- `package.files` (mix.exs) omits `CHANGELOG.md`, so a changelog would not ship in the tarball.
+- `mix.exs` declares `elixir: "~> 1.6"` — a support claim that has never been CI-verified.
+- `constant_of/1`'s polymorphic return (list when values collide, `nil` when absent) is
+  undocumented and untested.
 
 Runtime code has **zero dependencies** — all stale deps are `only: :dev, runtime: false`,
 so consumers are unaffected at runtime today. The work is low-risk modernization.
 
-## Decisions (from brainstorming)
+## Decisions (from brainstorming + review)
 
 | Decision | Choice |
 |---|---|
-| Intent | Revive & republish (broadest scope) |
-| Release version | `0.3.0` (minor bump; reflects `constant_of`/`value_of` added since last publish) |
+| Intent | Revive & prepare for republish (broadest scope) |
+| Release version | `0.3.0` |
+| Changelog baseline | "since **0.2.5**" (the published version) |
+| Reconcile 0.2.5 | **Merge `aram356/udpdate_ex_doc` into `master` first**, then rebase the work branch on top so the repo matches Hex before layering 0.3.0 |
+| Support floor | **Raise to `elixir: "~> 1.15"`** (honest, CI-verified minimum) |
 | Verification | Install Erlang/OTP locally **and** add CI (both) |
-| CI matrix | Recent 3 Elixir (1.17/1.18/1.19) with matching OTP (26/27/28) |
+| CI matrix | Elixir 1.17/1.18/1.19 with OTP **26/27/28** (pairs: 1.17/26, 1.18/27, 1.19/28) |
+| Local OTP pin | Pin a real **OTP ≥ 28.1** (Elixir 1.19 requires 28.1+); no placeholder version |
 | `config/config.exs` | Delete (pure-macro lib has no runtime config) |
-| `constant_of` polymorphic return | Keep behavior, document explicitly (avoid breaking consumers) |
-| Delivery | All changes on a feature branch via a pull request (MR) |
+| `constant_of` return | Keep behavior; **document AND add tests** (list / `nil` paths) |
+| `CHANGELOG.md` | Create **and** add to `package.files`; validate with `mix hex.build` / dry-run |
+| Commits | Targeted `git add <paths>` only; never `git add -A`; gitignore `.DS_Store` |
+| Delivery | All 0.3.0 work on a feature branch via a pull request (MR) |
 | Publish | Gated hand-off to maintainer; not done autonomously |
 
 ## Workstreams
 
-Each workstream is independently verifiable. Order matters: 1 establishes the baseline,
-2–5 are the changes, 6 is delivery, 7 is the gated publish.
+Each workstream is independently verifiable. WS0 reconciles the published baseline; WS1
+establishes the green toolchain; WS2–6 are the changes; WS7 is delivery; WS8 is the gated publish.
+
+### 0. Reconcile published 0.2.5 onto master
+- Fetch and fast-forward-merge `origin/aram356/udpdate_ex_doc` into `master` so `master`
+  reflects published 0.2.5.
+- Rebase the `revive-and-modernize` work branch onto the updated `master`.
+
+**Verify:** `git show master:mix.exs | grep @version` shows `0.2.5`; work branch rebased cleanly.
 
 ### 1. Toolchain & green baseline
-- Install Erlang/OTP 28 via asdf; confirm `elixir`/`erl` resolve.
-- Commit `.tool-versions` pinning `elixir 1.19.5-otp-28` and `erlang 28.x`.
-- Run `mix deps.get && mix test` **before any source change** to capture a known-green
-  starting point. Record results.
-- Create feature branch (e.g. `revive-and-modernize`) off `master`.
+- Add asdf `erlang` plugin; install OTP ≥ 28.1; commit `.tool-versions`
+  (`elixir 1.19.5-otp-28` + the installed `erlang 28.1+`).
+- Run `mix deps.get && mix test` on the reconciled baseline to capture a known-green start.
 
-**Verify:** all tests pass on the untouched code.
+**Verify:** `elixir --version` resolves OTP 28.1+; all tests pass before changes.
 
 ### 2. Deprecation & hygiene fixes
-- Delete `config/config.exs` (100% boilerplate, no active config).
-- Fix `value_of` doc example in `lib/defconst.ex` (currently wrongly calls `constant_of`).
-- Rename `normalize_contant` → `normalize_constant` (all references).
-- Add an explicit doc note to `constant_of` describing its polymorphic return
-  (single atom for unique values, list when multiple constants share a value).
+- Delete `config/config.exs`.
+- Fix the `value_of` doc example (currently calls `constant_of`).
+- Rename `normalize_contant` → `normalize_constant`.
+- Document `constant_of/1`'s polymorphic return.
+- Add `.DS_Store` to `.gitignore`.
 
-**Verify:** `mix test` green, `mix format --check-formatted` clean.
+**Verify:** `mix test` green; `mix format --check-formatted` clean.
 
-### 3. Dependency modernization
-- Bump `ex_doc "~> 0.20"` → `"~> 0.34"` in `mix.exs` (stays `only: :dev, runtime: false`).
-- Delete `mix.lock`; regenerate via `mix deps.get` (pulls modern
-  `earmark_parser`/`makeup`/`nimble_parsec`, drops legacy `earmark`).
+### 3. Test `constant_of/1` contract (TDD)
+- Add tests: colliding values return a **list** of names; absent value returns **`nil`**.
+- Use a fixture module with duplicate constant values.
+
+**Verify:** new tests fail first (red), pass after (green); full suite green.
+
+### 4. Dependency & support modernization
+- Bump `ex_doc` to `~> 0.34` (`only: :dev, runtime: false`).
+- Raise `elixir:` requirement to `~> 1.15`.
+- Delete & regenerate `mix.lock`.
 - Build docs to confirm tooling works on OTP 28.
 
-**Verify:** `mix test` green, `mix docs` builds without error.
+**Verify:** `mix test` green; `mix docs` builds; lockfile uses `earmark_parser`, not legacy `earmark`.
 
-### 4. Continuous integration
-- Add `.github/workflows/ci.yml` using `erlef/setup-beam`.
-- Matrix: Elixir 1.17/1.18/1.19 against compatible OTP 26/27/28.
+### 5. Continuous integration
+- Add `.github/workflows/ci.yml` (`erlef/setup-beam`); matrix 1.17/26, 1.18/27, 1.19/28.
 - Steps: `mix deps.get`, `mix format --check-formatted`, `mix test`.
-- Triggers: push and pull_request targeting `master`.
 
-**Verify:** workflow file is valid YAML; jobs run and pass once pushed.
+**Verify:** valid YAML; jobs pass once pushed.
 
-### 5. Release prep
-- Bump `version: "0.2.4"` → `"0.3.0"` in `mix.exs`.
-- Add `CHANGELOG.md` documenting `constant_of`/`value_of` and the modernization.
-- Update `README.md`: dependency hint `~> 0.2.2` → `~> 0.3.0`; document new functions.
+### 6. Release prep
+- Bump version to `0.3.0`.
+- Create `CHANGELOG.md` (baseline "since 0.2.5") **and** add it to `package.files`.
+- Update README: dependency hint → `~> 0.3.0`; document introspection functions.
+- Validate the package tarball: `mix hex.build` (and review `mix hex.publish --dry-run`).
 
-**Verify:** `mix test` green; README/CHANGELOG reviewed.
+**Verify:** `mix test` green; `mix hex.build` succeeds and the file list includes `CHANGELOG.md`.
 
-### 6. Delivery (MR)
-- Push the feature branch.
-- Open a pull request (MR) against `master` summarizing all workstreams.
-- Ensure CI passes on the PR.
+### 7. Delivery (MR)
+- Push the branch; open a PR against `master` summarizing all workstreams; ensure CI passes.
 
 **Verify:** PR opened, CI green, ready for review/merge.
 
-### 7. Publish (gated hand-off)
-- After the PR is merged to `master`: tag `v0.3.0` and `git push --tags`.
-- `mix hex.publish` requires the maintainer's Hex credentials and is an irreversible,
-  outward-facing action. **This step is handed to the maintainer**; the agent will stage
-  everything and, if asked, walk through the publish — but will not publish autonomously.
+### 8. Publish (gated hand-off)
+- After merge: tag `v0.3.0`, push tag.
+- `mix hex.publish` requires the maintainer's Hex credentials and is irreversible and
+  outward-facing. **Performed by the maintainer**, not autonomously.
 
 **Verify:** tag pushed; publish performed by maintainer.
 
 ## Out of scope
 - Changing the `defconst`/`defenum`/generator public API or macro behavior.
-- Changing `constant_of`'s return shape (documented, not changed).
+- Changing `constant_of`'s return shape (documented + tested, not changed).
 - Unrelated refactoring of the macro internals.
 
 ## Success criteria
-- `mix test`, `mix format --check-formatted`, and `mix docs` all succeed locally on
-  OTP 28 and across the CI matrix.
+- `mix test`, `mix format --check-formatted`, `mix docs`, and `mix hex.build` all succeed
+  locally on OTP 28.1+ and across the CI matrix.
 - No deprecation warnings on current Elixir.
+- Repo `master` matches published 0.2.5 before 0.3.0 is layered on.
 - A `0.3.0` PR is merged and tagged, ready for the maintainer to publish to Hex.
