@@ -156,8 +156,12 @@ behavior bug — stop and report before changing source.)
 
 ## Success criteria
 
-- `mix test`, `mix format --check-formatted`, `mix docs`, and `mix hex.build` all succeed
-  locally on OTP 28.1+ and across the CI matrix.
+- Locally on OTP 28.1+ / Elixir 1.19: `mix test`, `mix format --check-formatted`,
+  `mix docs`, and `mix hex.build` all succeed. In CI: `mix test` passes across the matrix
+  and the dedicated `format` job is clean. (CI does **not** run `mix docs` or `mix hex.build`
+  by design — those are dev/release-time checks.)
 - No deprecation warnings on current Elixir.
+- The `~> 1.15` support floor applies to **runtime and test** usage; doc generation (and
+  thus a full dev `mix deps.get` that pulls dev-only ex_doc) is maintained on Elixir 1.19.
 - Repo `master` matches published 0.2.5 before 0.3.0 is layered on.
 - A `0.3.0` PR is merged and tagged, ready for the maintainer to publish to Hex.

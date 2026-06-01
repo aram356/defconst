@@ -149,13 +149,27 @@ git commit -m "Pin toolchain: Elixir 1.19.5 / OTP 28.1+"
 - Delete: `config/config.exs`
 - Modify: `lib/defconst.ex`, `.gitignore`
 
-- [ ] **Step 1: Add `.DS_Store` to `.gitignore`**
+- [ ] **Step 1: Reconcile the OS-ignore lines in `.gitignore`**
 
-Append a line to `/Users/ag/projects/defconst/.gitignore`:
+> NOTE: the worktree **already contains** an uncommitted edit to `.gitignore` that appended
+> `# OS` / `.DS_Store` / `Thumbs.db` **without a trailing newline**. Don't blindly stage it.
+> Normalize it to the exact block below (single `# OS` header, both entries, **trailing
+> newline restored**) so the commit in Step 8 doesn't carry a malformed file.
+
+Ensure the end of `/Users/ag/projects/defconst/.gitignore` reads exactly:
 
 ```
-# macOS Finder metadata
+# OS
 .DS_Store
+Thumbs.db
+```
+
+(with a terminating newline). Verify there is no duplicate header and the file ends in a
+newline:
+
+```bash
+tail -3 .gitignore
+test -z "$(tail -c1 .gitignore)" && echo "ends with newline" || echo "MISSING trailing newline — fix it"
 ```
 
 - [ ] **Step 2: Confirm the config is inert, then delete it**
@@ -215,11 +229,12 @@ Expected: tests pass; formatter clean. If formatter complains, `mix format` then
 
 - [ ] **Step 8: Commit (targeted)**
 
-The `config/config.exs` deletion was already staged by Step 2's `git rm`. Stage the rest with targeted adds (do **not** re-run `git rm` — the path is already gone from the index and the command would error):
+The `config/config.exs` deletion was already staged by Step 2's `git rm`. Stage the rest with targeted adds (do **not** re-run `git rm` — the path is already gone from the index and the command would error). Confirm the `.gitignore` you stage is the **normalized** version from Step 1 (both OS entries, trailing newline) — review `git diff .gitignore` before adding:
 
 ```bash
+git diff .gitignore   # confirm: only the # OS / .DS_Store / Thumbs.db block, ends in newline
 git add lib/defconst.ex .gitignore
-git commit -m "Remove deprecated Mix.Config, fix value_of doc, rename typo, document constant_of, ignore .DS_Store"
+git commit -m "Remove deprecated Mix.Config, fix value_of doc, rename typo, document constant_of, ignore OS files"
 ```
 
 > If for any reason the deletion is not yet staged, stage it with `git add -u config/config.exs` (records the removal) rather than another `git rm`.
@@ -298,17 +313,24 @@ git commit -m "Test constant_of/1 list and nil contract"
 
 - [ ] **Step 1: Bump `ex_doc` and set the Elixir floor**
 
-In `mix.exs`, change the deps entry from `{:ex_doc, "~> 0.20", ...}` (the constraint is `~> 0.20` even post-reconcile — only `mix.lock` resolved to 0.21.2) to the **latest** ex_doc line (0.40.x at time of writing):
+In `mix.exs`, change the deps entry from `{:ex_doc, "~> 0.20", ...}` (the constraint is `~> 0.20` even post-reconcile — only `mix.lock` resolved to 0.21.2) to:
 
 ```elixir
     [{:ex_doc, "~> 0.40", only: :dev, runtime: false}]
 ```
 
+Intent: **track the latest pre-1.0 ex_doc.** `~> 0.40` means `>= 0.40.0 and < 1.0.0`, so it
+admits future `0.4x`/`0.5x` releases — not just `0.40.x`. That is deliberate (we always want
+the newest doc tooling); the exact resolved version is pinned in `mix.lock` on regenerate.
+(If you instead wanted to stay on the 0.40 patch line only, you would write `~> 0.40.0`.)
+
 ex_doc is `only: :dev, runtime: false`, so it is needed only for `mix docs` on the dev
 machine (OTP 28 / Elixir 1.19) — not by consumers and not by the CI test jobs (those use
-`mix deps.get --only test`, see Task 6). This keeps the `~> 1.15` floor honest: latest
-ex_doc may require a newer Elixir than 1.15, but it is never resolved on the 1.15/1.16 CI
-jobs. Verify `mix docs` locally in Step 4.
+`mix deps.get --only test`, see Task 6). This keeps the `~> 1.15` floor honest **for
+runtime and test usage**: latest ex_doc may require a newer Elixir than 1.15, but it is
+never resolved on the 1.15/1.16 CI jobs. Docs are maintained on Elixir 1.19 — a full
+contributor `mix deps.get` (which pulls dev deps) is expected to run on 1.19, not 1.15.
+Verify `mix docs` locally in Step 4.
 
 And change the project's Elixir requirement from:
 
@@ -521,15 +543,13 @@ ConstType1.constant_of(2)     #=> :two
 ```
 ````
 
-````
-
 - [ ] **Step 5: Verify build, tests, formatting, and package tarball**
 
 ```bash
 mix test
 mix format --check-formatted
 mix hex.build
-````
+```
 
 Expected: tests pass; formatter clean; `mix hex.build` succeeds and its printed file list **includes `CHANGELOG.md`**. Optionally review `mix hex.publish --dry-run` (does not publish) to confirm metadata.
 
@@ -657,8 +677,10 @@ Expected: prompts for confirmation and publishes `defconst 0.3.0`. Requires `mix
 
 **Review-finding coverage (round 1):** (1) 0.2.5 reconciliation → Task 1; changelog baseline "since 0.2.5" + corrected "Added" list → Task 7 Step 3. (2) targeted `git add`, `.DS_Store` ignored → all commits + Task 3. (3) CHANGELOG in `package.files` + `mix hex.build` gate → Task 7 Steps 2/5. (4) OTP ≥ 28.1 pin → Task 2. (5) CI matrix aligned to spec → Task 6. (6) Elixir floor → Task 5. (7) `constant_of/1` tests → Task 4. (8) goal reworded → header + spec.
 
-**Review-finding coverage (round 2):** (1) floor↔CI consistency → keep `~> 1.15`, CI now tests 1.15/1.16 (Task 5 + Task 6). (2) no direct `master` push → reconciliation via PR (Task 1 Step 2 note, Task 8 Step 1). (3) Task 3 commit no longer re-runs `git rm` (uses `git add -u` fallback). (4) ex_doc constraint corrected to `~> 0.20` → `~> 0.34` (Task 5 Step 1). (5) TDD reworded to characterization (Task 4 / spec WS3). (6) plan commit now required (Task 1 Step 5). (7) spec 0.2.5 dep wording tightened (lock-only 0.21.2).
+**Review-finding coverage (round 2):** (1) floor↔CI consistency → keep `~> 1.15`, CI now tests 1.15/1.16 (Task 5 + Task 6). (2) no direct `master` push → reconciliation via PR (Task 1 Step 2 note, Task 8 Step 1). (3) Task 3 commit no longer re-runs `git rm` (uses `git add -u` fallback). (4) ex_doc constraint corrected to `~> 0.20` → `~> 0.34` *(later superseded in round 3: now `~> 0.40`, latest)* (Task 5 Step 1). (5) TDD reworded to characterization (Task 4 / spec WS3). (6) plan commit now required (Task 1 Step 5). (7) spec 0.2.5 dep wording tightened (lock-only 0.21.2).
 
 **Review-finding coverage (round 3):** (1) ex_doc → latest `~> 0.40` per "use latest libraries"; floor risk neutralized via `mix deps.get --only test` in CI (Task 5 Step 1, Task 6). (2) wrong `-o` test filter replaced with full-file / line-target run (Task 4 Step 2). (3) Task 4 heading + step reworded to characterization (no "failing"/"TDD"). (4) `mix format --check-formatted` moved to a single-version `format` job (Task 6). (5) changelog/toolchain say OTP 28.1+ (Task 5 Step 3 changelog, PR body). (6) explicit `origin/master..revive-and-modernize` diff check added before opening the PR (Task 8 Step 1).
+
+**Review-finding coverage (round 4):** (1) Task 7 Markdown fence bug fixed — stray fence removed, bash block closed with triple backticks. (2) ex_doc `~> 0.40` prose clarified as "latest pre-1.0, admits future 0.4x+" (Task 5 Step 1). (3) support-floor semantics clarified — `~> 1.15` covers runtime/test; docs maintained on 1.19; full dev `deps.get` expected on 1.19 (Task 5 Step 1, spec success criteria). (4) `.gitignore` reconciled — worktree already had `.DS_Store`+`Thumbs.db` sans newline; Step 1 normalizes it, Step 8 reviews `git diff` before staging. (5) success criteria reworded — CI runs tests+format only, not docs/hex.build. (6) stale round-2 ex_doc `~> 0.34` log entry annotated as superseded.
 
 **Type/name consistency:** `normalize_constant` consistent after rename; `constants`/`constant_of`/`value_of` match source and README; version `0.3.0` consistent across `mix.exs`, `CHANGELOG.md`, README, git tag; CI pairs are mutually compatible (1.15↔26, 1.16↔26, 1.17↔26, 1.18↔27, 1.19↔28).
