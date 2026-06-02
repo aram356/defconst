@@ -1,6 +1,17 @@
 # Defconst
 
+[![CI](https://github.com/aram356/defconst/actions/workflows/ci.yml/badge.svg)](https://github.com/aram356/defconst/actions/workflows/ci.yml)
+[![Hex.pm](https://img.shields.io/hexpm/v/defconst.svg)](https://hex.pm/packages/defconst)
+[![Docs](https://img.shields.io/badge/hex-docs-blue.svg)](https://hexdocs.pm/defconst)
+[![License](https://img.shields.io/hexpm/l/defconst.svg)](LICENSE)
+
 This package provides `defconst` macro for defining a single constant and `defenum` macro for defining a list of enumerated constant values.  The defined constants and enumerated constants are referencable in any expression as well as in guards statements.
+
+Documentation is published at [hexdocs.pm/defconst](https://hexdocs.pm/defconst).
+
+## Requirements
+
+Elixir `~> 1.15` (tested on 1.15–1.19 / OTP 26–28). The library has no runtime dependencies.
 
 ## Installation
 
@@ -131,3 +142,31 @@ defmodule TestEnumType3 do
           EnumGenerator3
 end
 ```
+
+## Development
+
+```sh
+mix deps.get
+mix test
+mix format --check-formatted
+mix docs
+```
+
+The toolchain is pinned in `.tool-versions` (Elixir 1.19.5 / OTP 28). CI runs the test suite
+across Elixir 1.15–1.19 / OTP 26–28 plus a formatting check.
+
+## Releasing
+
+Releases are published to Hex automatically by CI
+([`.github/workflows/release.yml`](.github/workflows/release.yml)):
+
+1. Bump `@version` in `mix.exs` and update [`CHANGELOG.md`](CHANGELOG.md).
+2. Publish a GitHub Release whose tag matches the version (e.g. `v0.3.0`).
+3. CI verifies the tag matches `mix.exs` and runs `mix hex.publish` (package + docs).
+
+This requires a `HEX_API_KEY` secret (a write-scoped Hex key) configured in the repository's
+Actions secrets.
+
+## License
+
+Apache-2.0 — see [LICENSE](LICENSE).
