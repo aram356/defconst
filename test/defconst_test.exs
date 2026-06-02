@@ -241,4 +241,32 @@ defmodule DefconstTest do
              ]
     end
   end
+
+  describe "constant_of edge cases" do
+    defmodule TestDupConst do
+      use Defconst
+
+      defconst :a, 1
+      defconst :b, 2
+      defconst :c, 1
+    end
+
+    test "returns a list when multiple constants share a value" do
+      require TestDupConst
+
+      assert TestDupConst.constant_of(1) == [:a, :c]
+    end
+
+    test "returns the single constant when the value is unique" do
+      require TestDupConst
+
+      assert TestDupConst.constant_of(2) == :b
+    end
+
+    test "returns nil when no constant has the value" do
+      require TestDupConst
+
+      assert TestDupConst.constant_of(999) == nil
+    end
+  end
 end

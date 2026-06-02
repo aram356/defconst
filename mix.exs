@@ -1,13 +1,13 @@
 defmodule Defconst.MixProject do
   use Mix.Project
 
-  @version "0.2.5"
+  @version "0.3.0"
 
   def project do
     [
       app: :defconst,
       deps: deps(),
-      elixir: "~> 1.6",
+      elixir: "~> 1.15",
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
       version: @version,
@@ -18,7 +18,7 @@ defmodule Defconst.MixProject do
 
       # Docs
       docs: [
-        extras: ["README.md"],
+        extras: ["README.md", "CHANGELOG.md"],
         main: "Defconst"
       ],
       homepage_url: "https://github.com/aram356/defconst",
@@ -40,7 +40,7 @@ defmodule Defconst.MixProject do
   end
 
   defp deps do
-    [{:ex_doc, "~> 0.20", only: :dev, runtime: false}]
+    [{:ex_doc, "~> 0.40", only: :dev, runtime: false}]
   end
 
   # Specifies which paths to compile per environment.
@@ -52,6 +52,7 @@ defmodule Defconst.MixProject do
         "lib",
         "mix.exs",
         "README.md",
+        "CHANGELOG.md",
         "LICENSE"
       ],
       maintainers: ["Aram Grigoryan"],

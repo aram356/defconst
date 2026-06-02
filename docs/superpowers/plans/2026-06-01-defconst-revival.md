@@ -1,0 +1,871 @@
+# Defconst Revival & Republish Implementation Plan
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+
+**Goal:** Revive the dormant `defconst` Elixir library — reconcile the published 0.2.5 onto master, fix deprecations, modernize dev dependencies, add tests + CI, and prepare a `0.3.0` release delivered via a pull request, with Hex publish gated to the maintainer.
+
+**Architecture:** A small (~280 LOC) pure-macro Elixir library with no runtime dependencies. The published 0.2.5 lives on an unmerged branch; we reconcile it to `master` first, then layer the 0.3.0 modernization on top. The existing ExUnit + doctest suite (plus new `constant_of/1` tests) is the regression gate — run it after every change.
+
+**Tech Stack:** Elixir 1.19 / Erlang OTP 28.1+, Mix, ExUnit, ex_doc, asdf, GitHub Actions (`erlef/setup-beam`).
+
+**Spec:** `docs/superpowers/specs/2026-06-01-defconst-revival-design.md`
+
+**Branch:** 0.3.0 work lands on `revive-and-modernize` (created off the _reconciled_ master). The spec is already committed there and will be carried across the rebase in Task 1.
+
+---
+
+## File Structure
+
+- `master` branch — **Reconciled via PR.** Bring it up to published 0.2.5 (`origin/aram356/udpdate_ex_doc`) through a pull request, not a direct push. Locally fast-forward only to base the work branch.
+- `.tool-versions` — **Create.** Pins `elixir 1.19.5-otp-28` + real `erlang 28.1+`.
+- `.gitignore` — **Modify.** Add OS files (`.DS_Store`, `Thumbs.db`).
+- `config/config.exs` — **Delete.** Deprecated `use Mix.Config`; no runtime config exists.
+- `lib/defconst.ex` — **Modify.** Fix `value_of` doc example, rename `normalize_contant`, document `constant_of` return shape.
+- `test/defconst_test.exs` — **Modify.** Add `constant_of/1` list + nil coverage.
+- `mix.exs` — **Modify.** Bump `ex_doc`, raise `elixir:` floor, bump version, add CHANGELOG to `package.files` **and** docs `extras`.
+- `mix.lock` — **Delete + regenerate.**
+- `.github/workflows/ci.yml` — **Create.** CI matrix.
+- `CHANGELOG.md` — **Create.** Baseline "since 0.2.5".
+- `README.md` — **Modify.** Fix version drift, document introspection functions.
+
+---
+
+## Task 0: Preflight — clean worktree for branch operations
+
+**Files:** git operations only.
+
+> Task 1 runs `git checkout master` and `git rebase master`. **`git rebase` refuses to run
+> with unstaged changes.** Ensure a clean tracked worktree before any branch operations.
+
+- [ ] **Step 1: Inspect the worktree and classify dirt**
+
+```bash
+git status --porcelain
+```
+
+Interpret the output (untracked files — lines starting with `??` — are usually fine and don't
+block rebase; **but** if a later `git checkout`/`git rebase` reports an untracked file _would
+be overwritten_ by the target branch, STOP and move that file aside first):
+
+- **Only `.gitignore` is modified** (` M .gitignore`): expected; it's a pending OS-ignore
+  edit that Task 3 Step 1 rewrites from scratch. Proceed to Step 2.
+- **Any _other_ tracked file is modified or staged:** STOP and reconcile it — the plan
+  assumes a clean start and must not sweep up unrelated changes.
+- **Nothing modified:** skip Step 2.
+
+- [ ] **Step 2: Verify, then discard the pending `.gitignore` edit**
+
+`git restore` is destructive (it drops the working-tree edit), so **confirm the diff is
+exactly the expected OS-ignore block before discarding.** Task 3 Step 1 recreates `.gitignore`
+cleanly, so discarding this specific known edit loses nothing.
+
+```bash
+git diff .gitignore
+```
+
+Expected diff: an appended block adding `# OS`, `.DS_Store`, and `Thumbs.db` (and nothing
+else). If the diff contains **any other change**, STOP — do not discard; investigate and
+reconcile manually. If it matches:
+
+```bash
+git restore .gitignore
+git status --porcelain         # expect: no tracked modifications (untracked ?? lines are fine)
+```
+
+---
+
+## Task 1: Reconcile published 0.2.5 onto master, rebase work branch
+
+**Files:** git operations only.
+
+- [ ] **Step 1: Confirm the published-baseline branch and its relationship to master**
+
+```bash
+git fetch origin
+git log --oneline master..origin/aram356/udpdate_ex_doc
+git show origin/aram356/udpdate_ex_doc:mix.exs | grep '@version'
+```
+
+Expected: exactly two commits ahead (`d6f5c3d Updated ex_doc`, `7b91238 Bump version`); version shows `0.2.5`. Confirms a clean fast-forward is possible.
+
+- [ ] **Step 2: Locally fast-forward master to base the work on 0.2.5**
+
+This is a **local** base-update only — it is NOT pushed. Remote `master` is reconciled via a PR (Step 5 / Task 8), respecting branch protection.
+
+```bash
+git checkout master
+git merge --ff-only origin/aram356/udpdate_ex_doc
+git log --oneline -1
+```
+
+Expected: local `master` now points at `7b91238` (0.2.5). If `--ff-only` is refused, STOP and report — do not force; the branch may have diverged unexpectedly.
+
+- [ ] **Step 3: Rebase the work branch onto the reconciled base**
+
+```bash
+git checkout revive-and-modernize
+git rebase master
+```
+
+Expected: the spec commit replays cleanly on top of 0.2.5. No conflicts are expected (only `docs/` was added on the branch).
+
+- [ ] **Step 4: Verify reconciled state**
+
+```bash
+grep '@version' mix.exs
+grep -n 'constant_of\|value_of' lib/defconst.ex | head
+```
+
+Expected: version `0.2.5`; `constant_of`/`value_of` present (they already shipped in 0.2.5).
+
+- [ ] **Step 5: Ensure the implementation plan is committed (conditional)**
+
+The plan (and spec) must travel with the PR. They were likely already committed while the
+plan was authored, and the rebase in Step 3 carries those commits forward — so this is a
+**verify, commit only if needed** step, not an unconditional commit (an empty `git commit`
+would error).
+
+```bash
+# Is the plan tracked and free of uncommitted changes?
+git ls-files --error-unmatch docs/superpowers/plans/2026-06-01-defconst-revival.md >/dev/null 2>&1 \
+  && echo "plan is tracked" || echo "plan is UNTRACKED"
+git status --porcelain docs/superpowers/
+```
+
+- If `git status` shows **no output** for `docs/superpowers/` and the plan is tracked: it is
+  already committed — **skip the commit.**
+- If it shows changes (untracked or modified): commit just those:
+  ```bash
+  git add docs/superpowers/
+  git commit -m "Add 0.3.0 spec and implementation plan"
+  ```
+
+> Remote `master` reconciliation (merging the published 0.2.5 commits) is delivered through
+> a PR — see Task 8 Step 1. Do not `git push origin master` directly anywhere in this plan.
+
+---
+
+## Task 2: Toolchain & green baseline
+
+**Files:**
+
+- Create: `.tool-versions`
+
+- [ ] **Step 1: Ensure the Elixir asdf plugin + version are present**
+
+`.tool-versions` (Step 3) pins `elixir 1.19.5-otp-28`, so that exact build must be installed
+or `elixir --version` (Step 4) fails with "No version is set"/"not installed". Verify, and
+install only if missing:
+
+```bash
+asdf plugin add elixir 2>/dev/null || true        # no-op if already added
+asdf list elixir 2>/dev/null | grep -q '1.19.5-otp-28' \
+  && echo "elixir 1.19.5-otp-28 already installed" \
+  || asdf install elixir 1.19.5-otp-28
+```
+
+Expected: `1.19.5-otp-28` is installed (on this machine it already is). The Elixir plugin
+ships prebuilt binaries, so this is fast — unlike the Erlang build below.
+
+- [ ] **Step 2: Add the Erlang asdf plugin**
+
+Run: `asdf plugin add erlang`
+Expected: plugin added (or "already added" — both fine).
+
+- [ ] **Step 3: Install a compatible OTP (≥ 28.1)**
+
+Elixir 1.19 requires OTP **28.1+**. Install the latest 28.1.x:
+
+```bash
+asdf install erlang latest:28.1
+asdf list erlang
+```
+
+Expected: an OTP `28.1.x` (or newer 28.x) version installed and listed. Note the exact version string for the next step.
+
+> NOTE: Erlang builds from source via kerl and can take several minutes plus build deps (autoconf, OpenSSL, wxWidgets). If the build fails for missing tooling, `brew install autoconf openssl wxwidgets` and retry. One-time setup.
+
+- [ ] **Step 4: Create `.tool-versions`**
+
+Create `/Users/ag/projects/defconst/.tool-versions` (replace `28.1.2` with the exact version from Step 3):
+
+```
+elixir 1.19.5-otp-28
+erlang 28.1.2
+```
+
+- [ ] **Step 5: Verify the toolchain resolves**
+
+Run (from the project dir): `elixir --version`
+Expected: prints Erlang/OTP 28 (28.1+) and Elixir 1.19.5 — no "erl: not found", no "No version is set".
+
+- [ ] **Step 6: Capture the green baseline**
+
+Run: `mix deps.get && mix test`
+Expected: deps fetch, all tests pass. Record the pass count.
+
+> If tests fail on the reconciled baseline, STOP and report — do not proceed.
+
+- [ ] **Step 7: Commit `.tool-versions` (targeted)**
+
+```bash
+git add .tool-versions
+git commit -m "Pin toolchain: Elixir 1.19.5 / OTP 28.1+"
+```
+
+---
+
+## Task 3: Deprecation & hygiene fixes
+
+**Files:**
+
+- Delete: `config/config.exs`
+- Modify: `lib/defconst.ex`, `.gitignore`
+
+- [ ] **Step 1: Reconcile the OS-ignore lines in `.gitignore`**
+
+> NOTE: the original worktree `.gitignore` edit (appended `# OS` / `.DS_Store` / `Thumbs.db`
+> **without a trailing newline**) was discarded in Task 0 Step 2. Recreate the block cleanly
+> here, with a proper trailing newline.
+
+Ensure the end of `/Users/ag/projects/defconst/.gitignore` reads exactly:
+
+```
+# OS
+.DS_Store
+Thumbs.db
+```
+
+(with a terminating newline). Verify there is no duplicate header and the file ends in a
+newline:
+
+```bash
+tail -3 .gitignore
+test -z "$(tail -c1 .gitignore)" && echo "ends with newline" || echo "MISSING trailing newline — fix it"
+```
+
+- [ ] **Step 2: Confirm the config is inert, then delete it**
+
+```bash
+grep -n '^[^#]*config ' config/config.exs   # expect: no output (all examples are commented)
+grep -rn 'Mix.Config' lib mix.exs            # expect: no output
+git rm config/config.exs
+```
+
+- [ ] **Step 3: Run the suite to confirm deletion is safe**
+
+Run: `mix test`
+Expected: all tests still pass; no "could not load config" error.
+
+- [ ] **Step 4: Fix the `value_of` doc copy-paste bug**
+
+In `lib/defconst.ex`, the `value_of` function's `@doc` example wrongly calls `constant_of` with constant keys. Change _only that `iex>` call_ from `constant_of` to `value_of`:
+
+```elixir
+      ## Examples:
+          iex> #{__MODULE__}.value_of(#{
+        unquote(constants)
+        |> Keyword.keys()
+        |> List.first()
+        |> Kernel.inspect()
+      })
+          #{unquote(constants) |> Keyword.values() |> List.first() |> Kernel.inspect()}
+```
+
+(Keep the surrounding heredoc indentation as it exists post-0.2.5 reformat. The semantic fix is `constant_of` → `value_of`; the body already passes a key via `Keyword.keys()` and shows the value via `Keyword.values()`.)
+
+- [ ] **Step 5: Rename the `normalize_contant` typo**
+
+```bash
+sed -i '' 's/normalize_contant/normalize_constant/g' lib/defconst.ex
+grep -c 'normalize_constant' lib/defconst.ex   # expect: 3
+grep -c 'normalize_contant'  lib/defconst.ex   # expect: 0
+```
+
+- [ ] **Step 6: Document `constant_of/1`'s polymorphic return**
+
+In `lib/defconst.ex`, add a `## Returns:` block inside the `constant_of` `@doc`, immediately before its `## Examples:` line:
+
+```elixir
+      ## Returns:
+        * the matching constant name when the value is unique
+        * a list of constant names when multiple constants share the value
+        * `nil` when no constant has the value
+
+```
+
+- [ ] **Step 7: Run the suite + formatter**
+
+Run: `mix test && mix format --check-formatted`
+Expected: tests pass; formatter clean. If formatter complains, `mix format` then re-check.
+
+- [ ] **Step 8: Commit (targeted)**
+
+The `config/config.exs` deletion was already staged by Step 2's `git rm`. Stage the rest with targeted adds (do **not** re-run `git rm` — the path is already gone from the index and the command would error). Confirm the `.gitignore` you stage is the **normalized** version from Step 1 (both OS entries, trailing newline) — review `git diff .gitignore` before adding:
+
+```bash
+git diff .gitignore   # confirm: only the # OS / .DS_Store / Thumbs.db block, ends in newline
+git add lib/defconst.ex .gitignore
+git commit -m "Remove deprecated Mix.Config, fix value_of doc, rename typo, document constant_of, ignore OS files"
+```
+
+> If for any reason the deletion is not yet staged, stage it with `git add -u config/config.exs` (records the removal) rather than another `git rm`.
+
+---
+
+## Task 4: Test the `constant_of/1` contract (characterization / regression)
+
+**Files:**
+
+- Modify: `test/defconst_test.exs`
+
+> These are characterization tests: the behavior already exists in the source, so they are
+> expected to **pass on first run**. They lock the documented `constant_of/1` contract in
+> place — this is not red-green TDD.
+
+- [ ] **Step 1: Write the characterization tests**
+
+Add a new `describe` block to `test/defconst_test.exs` with a fixture module that has a duplicate value, covering the list and `nil` paths:
+
+```elixir
+  describe "constant_of edge cases" do
+    defmodule TestDupConst do
+      use Defconst
+
+      defconst :a, 1
+      defconst :b, 2
+      defconst :c, 1
+    end
+
+    test "returns a list when multiple constants share a value" do
+      require TestDupConst
+      assert TestDupConst.constant_of(1) == [:a, :c]
+    end
+
+    test "returns the single constant when the value is unique" do
+      require TestDupConst
+      assert TestDupConst.constant_of(2) == :b
+    end
+
+    test "returns nil when no constant has the value" do
+      require TestDupConst
+      assert TestDupConst.constant_of(999) == nil
+    end
+  end
+```
+
+- [ ] **Step 2: Run the new tests to confirm current behavior**
+
+Run the whole file (ExUnit's `--only`/`-o` filters _tags_, not `describe`/`test` names, so a name filter would silently match zero tests):
+
+```bash
+mix test test/defconst_test.exs
+```
+
+To run only the inserted cases, target them by line number instead, e.g. `mix test test/defconst_test.exs:251` (use the actual line of each new `test`).
+
+Expected: the three new tests **pass** because the existing `constant_of` already implements list/nil correctly. If any fail, that is a real behavior bug — STOP and report actual vs. expected before changing source.
+
+> Note: `constant_of` already builds a `value_map` accumulating multiple names per value and returns `nil` for missing keys (the `case constants do [constant] -> ...; _ -> constants end` path returns the list, and `nil` falls through as `_`). These tests lock that documented contract in place.
+
+- [ ] **Step 3: Commit (targeted)**
+
+```bash
+git add test/defconst_test.exs
+git commit -m "Test constant_of/1 list and nil contract"
+```
+
+---
+
+## Task 5: Dependency & support modernization
+
+**Files:**
+
+- Modify: `mix.exs`
+- Delete + regenerate: `mix.lock`
+
+- [ ] **Step 1: Bump `ex_doc` and set the Elixir floor**
+
+In `mix.exs`, change the deps entry from `{:ex_doc, "~> 0.20", ...}` (the constraint is `~> 0.20` even post-reconcile — only `mix.lock` resolved to 0.21.2) to:
+
+```elixir
+    [{:ex_doc, "~> 0.40", only: :dev, runtime: false}]
+```
+
+Intent: **track the latest pre-1.0 ex_doc.** `~> 0.40` means `>= 0.40.0 and < 1.0.0`, so it
+admits future `0.4x`/`0.5x` releases — not just `0.40.x`. That is deliberate (we always want
+the newest doc tooling); the exact resolved version is pinned in `mix.lock` on regenerate.
+(If you instead wanted to stay on the 0.40 patch line only, you would write `~> 0.40.0`.)
+
+ex_doc is `only: :dev, runtime: false`, so it is needed only for `mix docs` on the dev
+machine (OTP 28 / Elixir 1.19) — not by consumers and not by the CI test jobs (those use
+`mix deps.get --only test`, see Task 6). This keeps the `~> 1.15` floor honest **for
+runtime and test usage**: latest ex_doc may require a newer Elixir than 1.15, but it is
+never resolved on the 1.15/1.16 CI jobs. Docs are maintained on Elixir 1.19 — a full
+contributor `mix deps.get` (which pulls dev deps) is expected to run on 1.19, not 1.15.
+Verify `mix docs` locally in Step 4.
+
+And change the project's Elixir requirement from:
+
+```elixir
+      elixir: "~> 1.6",
+```
+
+to:
+
+```elixir
+      elixir: "~> 1.15",
+```
+
+- [ ] **Step 2: Regenerate the lockfile**
+
+```bash
+rm mix.lock
+mix deps.get
+grep -c 'earmark_parser' mix.lock   # expect: 1
+grep '"earmark":' mix.lock          # expect: no output (legacy earmark gone)
+```
+
+- [ ] **Step 3: Confirm the suite still passes**
+
+Run: `mix test`
+Expected: all tests pass (runtime code unchanged).
+
+- [ ] **Step 4: Confirm docs build on OTP 28**
+
+Run: `mix docs`
+Expected: docs generate into `doc/` (gitignored) with no errors.
+
+- [ ] **Step 5: Commit (targeted)**
+
+```bash
+git add mix.exs mix.lock
+git commit -m "Modernize ex_doc to ~> 0.40 (latest), set Elixir floor to ~> 1.15, regenerate lockfile"
+```
+
+---
+
+## Task 6: Continuous integration
+
+**Files:**
+
+- Create: `.github/workflows/ci.yml`
+
+- [ ] **Step 1: Create the workflow file**
+
+Create `/Users/ag/projects/defconst/.github/workflows/ci.yml`:
+
+```yaml
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      MIX_ENV: test
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - elixir: "1.15"
+            otp: "26"
+          - elixir: "1.16"
+            otp: "26"
+          - elixir: "1.17"
+            otp: "26"
+          - elixir: "1.18"
+            otp: "27"
+          - elixir: "1.19"
+            otp: "28"
+    name: Test (Elixir ${{ matrix.elixir }} / OTP ${{ matrix.otp }})
+    steps:
+      - uses: actions/checkout@v4
+      - uses: erlef/setup-beam@v1
+        with:
+          elixir-version: ${{ matrix.elixir }}
+          otp-version: ${{ matrix.otp }}
+      - name: Restore deps cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            deps
+            _build
+          key: ${{ runner.os }}-mix-${{ matrix.elixir }}-${{ matrix.otp }}-${{ hashFiles('**/mix.lock') }}
+          restore-keys: ${{ runner.os }}-mix-${{ matrix.elixir }}-${{ matrix.otp }}-
+      # Job-level MIX_ENV=test means compile/test never expect the dev-only ex_doc dep.
+      # --only test excludes ex_doc from resolution, so no deps the lib doesn't ship are pulled.
+      - run: mix deps.get --only test
+      # Consumer path: compile the library + run tests with runtime deps only (there are none).
+      - run: mix compile
+      - run: mix test
+
+  format:
+    runs-on: ubuntu-latest
+    name: Format (Elixir 1.19 / OTP 28)
+    steps:
+      - uses: actions/checkout@v4
+      - uses: erlef/setup-beam@v1
+        with:
+          elixir-version: "1.19"
+          otp-version: "28"
+      # No mix deps.get needed: .formatter.exs has no `import_deps`, so formatting
+      # requires no dependencies. (If `import_deps:` is ever added, add `mix deps.get` here.)
+      - run: mix format --check-formatted
+```
+
+Formatter output can differ between Elixir releases, so `mix format --check-formatted` runs
+in a **single** pinned `format` job (1.19), while compile/test runs across the full matrix.
+
+**This is the consumer-compatibility proof for the `~> 1.15` floor:** the `1.15/26` and
+`1.16/26` jobs fetch with `--only test` (no dev-only ex_doc), then `mix compile` + `mix test`
+exactly as a consumer on those versions would — the library has zero runtime deps, so a green
+job there proves the floor is real, not asserted.
+
+- [ ] **Step 2: Validate the workflow locally**
+
+First check it parses as YAML:
+
+```bash
+ruby -ryaml -e "YAML.load_file('.github/workflows/ci.yml'); puts 'valid'"
+```
+
+Expected: prints `valid`.
+
+Then lint Actions semantics (catches matrix/expression/runner mistakes YAML parsing can't).
+`actionlint` is available on this machine:
+
+```bash
+actionlint .github/workflows/ci.yml
+```
+
+Expected: no output (clean). If `actionlint` is not installed elsewhere, `brew install
+actionlint`; the PR CI run is still the ultimate gate.
+
+- [ ] **Step 3: Dry-run the exact test-job command sequence locally**
+
+The `~> 1.15` consumer claim hinges on `mix deps.get --only test` not pulling/validating the
+dev-only ex_doc. Prove the **command sequence itself** works (env + flags) on the local
+toolchain before trusting CI. From a clean checkout dir (so the local `deps/`/`_build` don't
+mask issues — e.g. a temp clone or `git clean -n` first):
+
+```bash
+MIX_ENV=test mix deps.get --only test
+MIX_ENV=test mix compile
+MIX_ENV=test mix test
+```
+
+Expected: deps resolve **without** fetching ex_doc, compile succeeds, tests pass. This
+confirms the sequence on Elixir 1.19; the **1.15/1.16 CI jobs are the authoritative proof on
+those versions** — treat the first green CI run as the verification of the floor, and do not
+merge until those two jobs pass.
+
+> If the local dry-run fails resolution because of the dev-only ex_doc, that is exactly the
+> failure mode to catch here — fix before pushing (e.g. confirm ex_doc is `only: :dev`).
+
+- [ ] **Step 4: Commit (targeted)**
+
+```bash
+git add .github/workflows/ci.yml
+git commit -m "Add GitHub Actions CI matrix (Elixir 1.15-1.19 / OTP 26-28)"
+```
+
+> The dedicated `format` job runs `mix format --check-formatted` on a single Elixir version; the tree was formatted in Task 3 Step 7. The test matrix runs compile/test only.
+
+---
+
+## Task 7: Release prep
+
+**Files:**
+
+- Modify: `mix.exs`, `README.md`
+- Create: `CHANGELOG.md`
+
+- [ ] **Step 1: Bump the project version**
+
+In `mix.exs`, change `@version "0.2.5"` → `@version "0.3.0"`.
+
+- [ ] **Step 2: Add `CHANGELOG.md` to the package files and the docs extras**
+
+In `mix.exs`, update `package/0`'s `files:` list to include the changelog:
+
+```elixir
+      files: [
+        "lib",
+        "mix.exs",
+        "README.md",
+        "CHANGELOG.md",
+        "LICENSE"
+      ],
+```
+
+Also add it to the docs `extras` so `mix docs` renders it (currently `extras: ["README.md"]`):
+
+```elixir
+      docs: [
+        extras: ["README.md", "CHANGELOG.md"],
+        main: "Defconst"
+      ],
+```
+
+- [ ] **Step 3: Create `CHANGELOG.md` (baseline "since 0.2.5")**
+
+Create `/Users/ag/projects/defconst/CHANGELOG.md`:
+
+```markdown
+# Changelog
+
+All notable changes to this project are documented in this file.
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [0.3.0] - 2026-06-01
+
+### Added
+
+- GitHub Actions CI across Elixir 1.15–1.19 / OTP 26–28 (test matrix + dedicated format job).
+- Pinned toolchain via `.tool-versions` (Elixir 1.19.5 / OTP 28.1+).
+- Test coverage for `constant_of/1` duplicate-value (list) and missing-value (`nil`) paths.
+- `CHANGELOG.md` (now shipped in the Hex package).
+
+### Changed
+
+- Declared minimum supported Elixir as `~> 1.15`, now verified in CI (was an unverified `~> 1.6`).
+- Modernized `ex_doc` to the latest line, `~> 0.40` (dev-only; no runtime impact).
+
+### Removed
+
+- Deprecated `config/config.exs` (`use Mix.Config`); the library has no runtime config.
+
+### Fixed
+
+- Corrected the `value_of/1` documentation example (it referenced `constant_of`).
+- Renamed internal `normalize_contant` typo to `normalize_constant`.
+- Documented `constant_of/1`'s polymorphic return (name / list / `nil`).
+
+## [0.2.5] - 2020-01-08
+
+Last previously published release. Included `constants/0`, `constant_of/1`, and `value_of/1`.
+(Its `mix.lock` resolved the dev-only `ex_doc` to 0.21.2; the constraint stayed `~> 0.20`.)
+```
+
+- [ ] **Step 4: Update the README**
+
+In `README.md`: change `{:defconst, "~> 0.2.2"}` → `{:defconst, "~> 0.3.0"}`, then add an introspection section after the `### defconst` example:
+
+````markdown
+### Introspection
+
+Modules that `use Defconst` also expose:
+
+- `constants/0` — all constants as `[{name, value}, ...]`
+- `value_of/1` — the value for a constant name
+- `constant_of/1` — the constant name for a value (a list if several share the value, `nil` if none)
+
+```elixir
+ConstType1.constants()        #=> [{:one, 1}, {:two, 2}]
+ConstType1.value_of(:one)     #=> 1
+ConstType1.constant_of(2)     #=> :two
+```
+````
+
+- [ ] **Step 5: Verify build, tests, formatting, docs, and package tarball**
+
+```bash
+mix test
+mix format --check-formatted
+mix docs            # README/CHANGELOG changes here feed the docs — confirm they build
+mix hex.build
+```
+
+Expected: tests pass; formatter clean; `mix docs` builds without error (it consumes the
+updated `README.md`/`CHANGELOG.md`); `mix hex.build` succeeds and its printed file list
+**includes `CHANGELOG.md`**. Optionally review `mix hex.publish --dry-run` (does not publish)
+to confirm metadata.
+
+- [ ] **Step 6: Commit (targeted)**
+
+```bash
+git add mix.exs CHANGELOG.md README.md
+git commit -m "Prepare 0.3.0 release: version bump, changelog, README, package files"
+```
+
+---
+
+## Task 8: Delivery (MR / pull request)
+
+**Files:** none (git/GitHub operations only)
+
+- [ ] **Step 1: Reconcile remote master via PR, then push the feature branch**
+
+Do **not** `git push origin master`. Reconcile the published 0.2.5 onto remote `master`
+through a PR instead. Choose one:
+
+- **Option A (separate reconcile PR, cleaner history):** open a PR from the existing
+  published branch into master and merge it first:
+
+  ```bash
+  gh pr create --base master --head aram356/udpdate_ex_doc \
+    --title "Reconcile published 0.2.5 onto master" \
+    --body "master was behind Hex; this merges the published 0.2.5 commits (was on aram356/udpdate_ex_doc)."
+  ```
+
+  **Merge this PR with a merge commit — do NOT squash.** A squash-merge rewrites
+  `d6f5c3d`/`7b91238` into a single new commit, so the revival branch's copies of those
+  commits would no longer be ancestors of `origin/master`; the two-dot `git log` check below
+  would then still list them and look like Option B. Preserve the original commits so the
+  branch histories line up. After it merges, the revival PR (Step 2) targets the reconciled
+  master.
+
+- **Option B (fold into the revival PR):** skip the separate PR; the revival PR already
+  contains the 0.2.5 commits (the work branch was rebased onto them in Task 1). Call this
+  out explicitly in the PR body.
+
+Then push the work branch:
+
+```bash
+git push -u origin revive-and-modernize
+```
+
+Before opening the revival PR, **verify the diff against remote master** so you know exactly
+what the PR will contain:
+
+```bash
+git fetch origin
+# Commits in the branch but not master, by SHA (two-dot log):
+git log --oneline origin/master..revive-and-modernize
+# Net file difference between the two tips — the source of truth (TWO-dot diff):
+git diff --stat origin/master..revive-and-modernize
+```
+
+> **Use the two-dot `..` diff, not three-dot `...`.** Three-dot diffs from the _merge-base_,
+> so if the reconcile PR was squash-merged (new SHA, merge-base stays old), `...` re-shows the
+> 0.2.5 changes even though master already contains them. The two-dot `..` compares the tips
+> directly and shows the true net change. (Verified empirically.)
+
+- **Option A merged with a merge commit:** two-dot log shows only the revival commits;
+  two-dot diff shows only the revival file changes. ✓ Clean.
+- **Option A squash-merged:** the two-dot **log** still lists `d6f5c3d`/`7b91238` (their SHAs
+  aren't in the squashed master), but the two-dot **diff** correctly shows only the revival
+  changes (0.2.5 tree already matches). The mismatch is cosmetic _for the local check_ — but
+  **GitHub's PR "Files changed" view uses three-dot**, so the revival PR would _appear_ to
+  re-introduce 0.2.5. Fix it by realigning history: rebase the branch onto the squashed master
+  so the duplicate 0.2.5 commits drop out (git detects them as already applied):
+  ```bash
+  git rebase origin/master
+  git diff --stat origin/master..revive-and-modernize   # re-verify: revival changes only
+  ```
+  (This is why a **merge commit is preferred** for Option A — it avoids the rebase entirely.)
+- **Option B (folding in):** two-dot log shows the **two 0.2.5 commits** (`d6f5c3d`,
+  `7b91238`) **plus** the revival commits — both expected, confirming the PR carries the
+  reconciliation; two-dot diff shows the 0.2.5 + revival file changes.
+
+- [ ] **Step 2: Open the pull request**
+
+```bash
+gh pr create --base master --head revive-and-modernize \
+  --title "Revive & modernize defconst for 0.3.0" \
+  --body "$(cat <<'EOF'
+Revives the dormant library and prepares a 0.3.0 release.
+
+## Reconciliation
+- master was behind the published 0.2.5 (it lived on aram356/udpdate_ex_doc). This work is based on the reconciled 0.2.5 baseline.
+
+## Changes
+- Pin toolchain (Elixir 1.19.5 / OTP 28.1+) via .tool-versions; ignore OS files (.DS_Store, Thumbs.db)
+- Remove deprecated config/config.exs (use Mix.Config)
+- Fix value_of doc example; rename normalize_contant typo; document constant_of return shape
+- Add tests for constant_of/1 list + nil paths
+- Modernize ex_doc to latest ~> 0.40 (dev-only); keep Elixir floor at ~> 1.15 (CI-verified); regenerate mix.lock
+- Add GitHub Actions CI: test matrix (Elixir 1.15-1.19 / OTP 26-28) + dedicated format job
+- 0.3.0: version bump, CHANGELOG (since 0.2.5) added to package files and docs extras, README updates
+
+## Verification
+- mix test green locally on OTP 28.1+
+- mix format --check-formatted clean
+- mix docs builds; mix hex.build includes CHANGELOG.md
+
+See docs/superpowers/specs/2026-06-01-defconst-revival-design.md for the design.
+EOF
+)"
+```
+
+Expected: PR URL printed.
+
+- [ ] **Step 3: Confirm CI passes on the PR**
+
+Run: `gh pr checks --watch`
+Expected: all six jobs succeed — five test jobs (1.15/26, 1.16/26, 1.17/26, 1.18/27, 1.19/28) plus the format job (1.19/28). Fix-and-push on failure; do not proceed to publish until green.
+
+---
+
+## Task 9: Publish — GATED HAND-OFF (maintainer action)
+
+**Do NOT execute autonomously.** `mix hex.publish` is outward-facing, irreversible, and requires the maintainer's Hex credentials. Performed by the maintainer after merge.
+
+- [ ] **Step 1 (maintainer): Merge the PR to `master`.**
+
+- [ ] **Step 2 (maintainer): Sanity-check the merged commit, then tag and push.**
+
+First confirm you are tagging the right commit — `mix.exs` is at `0.3.0`, the tag doesn't
+already exist, and **both** the package and the docs build (`mix hex.publish` builds and
+publishes docs as part of publishing, so a doc-build failure would otherwise surface mid-publish):
+
+```bash
+git checkout master && git pull
+grep '@version' mix.exs            # expect: @version "0.3.0"
+git tag --list v0.3.0              # expect: empty (tag does not exist yet)
+mix deps.get                       # dev deps incl. ex_doc (run on Elixir 1.19 / OTP 28.1+)
+mix hex.build                      # expect: builds; file list includes CHANGELOG.md
+mix docs                           # expect: docs build cleanly (catches ex_doc failures pre-publish)
+```
+
+Then tag and push:
+
+```bash
+git tag v0.3.0
+git push origin v0.3.0
+```
+
+- [ ] **Step 3 (maintainer): Publish to Hex.**
+
+```bash
+mix hex.publish
+```
+
+Expected: prompts for confirmation and publishes `defconst 0.3.0`. Requires `mix hex.user auth` with the package owner's account.
+
+---
+
+## Self-Review
+
+**Spec coverage:** Task 0 (preflight/clean worktree — supports the "preflight a clean worktree" decision), WS0→Task 1, WS1→Task 2, WS2→Task 3, WS3→Task 4, WS4→Task 5, WS5→Task 6, WS6→Task 7, WS7→Task 8, WS8→Task 9. No gaps.
+
+**Placeholder scan:** No TBD/TODO placeholders; every code/config step shows complete content and exact commands. The only intentional substitution is the exact OTP patch version in `.tool-versions` (Task 2), which depends on what `asdf install` resolves.
+
+**Review-finding coverage (round 1):** (1) 0.2.5 reconciliation → Task 1; changelog baseline "since 0.2.5" + corrected "Added" list → Task 7 Step 3. (2) targeted `git add`, `.DS_Store` ignored → all commits + Task 3. (3) CHANGELOG in `package.files` + `mix hex.build` gate → Task 7 Steps 2/5. (4) OTP ≥ 28.1 pin → Task 2. (5) CI matrix aligned to spec → Task 6. (6) Elixir floor → Task 5. (7) `constant_of/1` tests → Task 4. (8) goal reworded → header + spec.
+
+**Review-finding coverage (round 2):** (1) floor↔CI consistency → keep `~> 1.15`, CI now tests 1.15/1.16 (Task 5 + Task 6). (2) no direct `master` push → reconciliation via PR (Task 1 Step 2 note, Task 8 Step 1). (3) Task 3 commit no longer re-runs `git rm` (uses `git add -u` fallback). (4) ex*doc constraint corrected to `~> 0.20` → `~> 0.34` *(later superseded in round 3: now `~> 0.40`, latest)\_ (Task 5 Step 1). (5) TDD reworded to characterization (Task 4 / spec WS3). (6) plan commit now required (Task 1 Step 5). (7) spec 0.2.5 dep wording tightened (lock-only 0.21.2).
+
+**Review-finding coverage (round 3):** (1) ex_doc → latest `~> 0.40` per "use latest libraries"; floor risk neutralized via `mix deps.get --only test` in CI (Task 5 Step 1, Task 6). (2) wrong `-o` test filter replaced with full-file / line-target run (Task 4 Step 2). (3) Task 4 heading + step reworded to characterization (no "failing"/"TDD"). (4) `mix format --check-formatted` moved to a single-version `format` job (Task 6). (5) changelog/toolchain say OTP 28.1+ (Task 5 Step 3 changelog, PR body). (6) explicit `origin/master..revive-and-modernize` diff check added before opening the PR (Task 8 Step 1).
+
+**Review-finding coverage (round 4):** (1) Task 7 Markdown fence bug fixed — stray fence removed, bash block closed with triple backticks. (2) ex_doc `~> 0.40` prose clarified as "latest pre-1.0, admits future 0.4x+" (Task 5 Step 1). (3) support-floor semantics clarified — `~> 1.15` covers runtime/test; docs maintained on 1.19; full dev `deps.get` expected on 1.19 (Task 5 Step 1, spec success criteria). (4) `.gitignore` reconciled — worktree already had `.DS_Store`+`Thumbs.db` sans newline; Step 1 normalizes it, Step 8 reviews `git diff` before staging. (5) success criteria reworded — CI runs tests+format only, not docs/hex.build. (6) stale round-2 ex_doc `~> 0.34` log entry annotated as superseded.
+
+**Review-finding coverage (round 5):** (1) dirty `.gitignore` would block `git rebase` → **new Task 0** _(round 5 used a stash; **superseded in round 6** by `git restore` — see round-6 note item 3)_. (2) Option A squash-merge would defeat the two-dot log check → require merge-commit (no squash) **and** add three-dot `git diff --stat` as the source-of-truth validation. (3) consumer-path proof for `~> 1.15` made explicit → CI test jobs add `mix compile`; prose states the 1.15/1.16 jobs are the consumer compatibility proof. (4) spec wording aligned to "OS files" (`.DS_Store`+`Thumbs.db`). (5) release handoff adds version/tag/build sanity checks before tagging (Task 9 Step 2).
+
+**Review-finding coverage (round 6):** (1) bare `mix compile` would run in dev and expect dev-only ex_doc → test job now sets job-level `MIX_ENV: test`. (2) Task 1 Step 5 made conditional — verify the plan is tracked/clean and commit only if `git status` shows changes (no empty-commit error). (3) brittle stash drop removed — Task 0 now `git restore`s the `.gitignore` edit (recreated in Task 3), no stash to track. (4) Task 0 generalized — classify dirt: only-`.gitignore` proceeds, any other tracked change STOPs, untracked ignored (no reliance on `.DS_Store` invisibility). (5) File Structure bullet → "OS files". (6) PR body → "ignore OS files (.DS_Store, Thumbs.db)".
+
+**Review-finding coverage (round 7):** (1) Task 0 discard now **verifies the `.gitignore` diff** matches exactly the OS-ignore block before `git restore`; any other change → STOP. (2) consumer-floor claim gets an explicit **local dry-run** of the test-job command sequence (Task 6 Step 3) plus a "treat first green 1.15/1.16 CI as authoritative" note. (3) Task 9 pre-publish checks add **`mix docs`** (publish builds docs, so catch failures first). (4) Task 0 untracked-files wording softened — usually fine, but stop if Git reports they'd be overwritten. (5) round-5 stash log entry annotated as superseded by round 6.
+
+**Review-finding coverage (round 8):** (1) **corrected the PR-diff guidance** — net tree difference is the **two-dot** `git diff origin/master..branch` (three-dot re-shows 0.2.5 under squash-merge; verified empirically). Squash case now remedied by rebasing the branch onto the squashed master; merge-commit preferred. (2) removed the `git checkout --` destructive alternative in Task 0 — `git restore` only, after the diff check. (3) format job: documented it intentionally needs no `mix deps.get` (`.formatter.exs` has no `import_deps`). (4) added `mix docs` to Task 7 Step 5 (README/CHANGELOG feed docs). (5) spec "OTP 28" → "OTP 28.1+".
+
+**Review-finding coverage (round 9):** (1) Task 2 **new Step 1** ensures the Elixir asdf plugin + `1.19.5-otp-28` are installed (verify-or-install) before `.tool-versions`/`elixir --version`; remaining steps renumbered. (2) Task 7 Step 2 now adds `CHANGELOG.md` to the docs **`extras`** (not just `package.files`), making the `mix docs` claim accurate. (3) Task 6 Step 2 adds **`actionlint`** (installed locally) for Actions-semantics linting beyond YAML parsing.
+
+**Review-finding coverage (round 10):** (1) spec toolchain WS now mentions ensuring the Elixir asdf plugin/version. (2) plan File Structure + PR body aligned — CHANGELOG added to **both** `package.files` and docs `extras`. (3) 0.2.5 changelog entry corrected — `ex_doc 0.21.2` was a dev/docs **lock** resolution (constraint stayed `~> 0.20`), not package/runtime behavior.
+
+**Type/name consistency:** `normalize_constant` consistent after rename; `constants`/`constant_of`/`value_of` match source and README; version `0.3.0` consistent across `mix.exs`, `CHANGELOG.md`, README, git tag; CI pairs are mutually compatible (1.15↔26, 1.16↔26, 1.17↔26, 1.18↔27, 1.19↔28).

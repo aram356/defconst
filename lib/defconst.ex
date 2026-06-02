@@ -88,13 +88,13 @@ defmodule Defconst do
       ## Parameters:
         * value: value of a constant
 
+      ## Returns:
+        * the matching constant name when the value is unique
+        * a list of constant names when multiple constants share the value
+        * `nil` when no constant has the value
+
       ## Examples:
-          iex> #{__MODULE__}.constant_of(#{
-        unquote(constants)
-        |> Keyword.values()
-        |> List.first()
-        |> Kernel.inspect()
-      })
+          iex> #{__MODULE__}.constant_of(#{unquote(constants) |> Keyword.values() |> List.first() |> Kernel.inspect()})
           #{unquote(constants) |> Keyword.keys() |> List.first() |> Kernel.inspect()}
 
       """
@@ -114,12 +114,7 @@ defmodule Defconst do
         * constant: defined constant
 
       ## Examples:
-          iex> #{__MODULE__}.constant_of(#{
-        unquote(constants)
-        |> Keyword.keys()
-        |> List.first()
-        |> Kernel.inspect()
-      })
+          iex> #{__MODULE__}.value_of(#{unquote(constants) |> Keyword.keys() |> List.first() |> Kernel.inspect()})
           #{unquote(constants) |> Keyword.values() |> List.first() |> Kernel.inspect()}
 
       """
@@ -268,16 +263,16 @@ defmodule Defconst do
   end
 
   defp normalize(constants, generator) do
-    {result, _} = Enum.reduce(constants, {[], 0}, &normalize_contant(generator, &1, &2))
+    {result, _} = Enum.reduce(constants, {[], 0}, &normalize_constant(generator, &1, &2))
 
     result
   end
 
-  defp normalize_contant(generator, {constant_name, value} = constant, {accumulator, _index}) do
+  defp normalize_constant(generator, {constant_name, value} = constant, {accumulator, _index}) do
     {[constant | accumulator], generator.next_value(constant_name, value)}
   end
 
-  defp normalize_contant(generator, constant_name, {accumulator, index}) do
+  defp normalize_constant(generator, constant_name, {accumulator, index}) do
     {[{constant_name, index} | accumulator], generator.next_value(constant_name, index)}
   end
 end
