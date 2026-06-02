@@ -53,7 +53,7 @@ so consumers are unaffected at runtime today. The work is low-risk modernization
 | `config/config.exs`  | Delete (pure-macro lib has no runtime config)                                                                                                                                                              |
 | `constant_of` return | Keep behavior; **document AND add tests** (list / `nil` paths)                                                                                                                                             |
 | `CHANGELOG.md`       | Create **and** add to `package.files`; validate with `mix hex.build` / dry-run                                                                                                                             |
-| Commits              | Targeted `git add <paths>` only; never `git add -A`; gitignore `.DS_Store`                                                                                                                                 |
+| Commits              | Targeted `git add <paths>` only; never `git add -A`; gitignore OS files (`.DS_Store`, `Thumbs.db`); preflight a clean worktree before branch ops                                                                                                                                 |
 | Delivery             | All 0.3.0 work on a feature branch via a pull request (MR)                                                                                                                                                 |
 | Publish              | Gated hand-off to maintainer; not done autonomously                                                                                                                                                        |
 
@@ -89,7 +89,7 @@ delivered through a PR, not a direct `git push origin master`.
 - Fix the `value_of` doc example (currently calls `constant_of`).
 - Rename `normalize_contant` → `normalize_constant`.
 - Document `constant_of/1`'s polymorphic return.
-- Add `.DS_Store` to `.gitignore`.
+- Add OS files (`.DS_Store`, `Thumbs.db`) to `.gitignore`.
 
 **Verify:** `mix test` green; `mix format --check-formatted` clean.
 
@@ -119,7 +119,9 @@ behavior bug — stop and report before changing source.)
 
 - Add `.github/workflows/ci.yml` (`erlef/setup-beam`); matrix 1.15/26, 1.16/26, 1.17/26,
   1.18/27, 1.19/28.
-- Test matrix steps: `mix deps.get --only test`, `mix test` (no formatter — see below).
+- Test matrix steps: `mix deps.get --only test`, `mix compile`, `mix test` (no formatter —
+  see below). The 1.15/1.16 jobs are the **consumer-compatibility proof** for the `~> 1.15`
+  floor (lib compiles + tests pass with runtime deps only — there are none).
 - A separate single-version `format` job (Elixir 1.19) runs `mix format --check-formatted`,
   since formatter output can differ between Elixir releases.
 

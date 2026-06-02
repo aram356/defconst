@@ -30,6 +30,34 @@
 
 ---
 
+## Task 0: Preflight — clean worktree for branch operations
+
+**Files:** git operations only.
+
+> Task 1 runs `git checkout master` and `git rebase master`. **`git rebase` refuses to run
+> with unstaged changes**, and the worktree currently has a pending `.gitignore` edit. Clear
+> it before any branch operations; it is recreated (normalized) in Task 3 Step 1.
+
+- [ ] **Step 1: Inspect the worktree**
+
+```bash
+git status --porcelain
+```
+Expected: only ` M .gitignore` (the pending OS-ignore edit). `.DS_Store` does **not** appear
+because the worktree `.gitignore` already ignores it. If anything *else* is modified, STOP
+and reconcile it before continuing.
+
+- [ ] **Step 2: Stash the pending `.gitignore` edit**
+
+```bash
+git stash push -m "preflight-gitignore" -- .gitignore
+git status --porcelain   # expect: clean (no output)
+```
+Expected: clean worktree. (Task 3 Step 1 rewrites `.gitignore` from scratch, so this stash
+is just to unblock the rebase; it will be dropped there.)
+
+---
+
 ## Task 1: Reconcile published 0.2.5 onto master, rebase work branch
 
 **Files:** git operations only.
@@ -151,10 +179,12 @@ git commit -m "Pin toolchain: Elixir 1.19.5 / OTP 28.1+"
 
 - [ ] **Step 1: Reconcile the OS-ignore lines in `.gitignore`**
 
-> NOTE: the worktree **already contains** an uncommitted edit to `.gitignore` that appended
-> `# OS` / `.DS_Store` / `Thumbs.db` **without a trailing newline**. Don't blindly stage it.
-> Normalize it to the exact block below (single `# OS` header, both entries, **trailing
-> newline restored**) so the commit in Step 8 doesn't carry a malformed file.
+> NOTE: the original `.gitignore` edit was stashed in Task 0 (it appended `# OS` /
+> `.DS_Store` / `Thumbs.db` **without a trailing newline**). Do **not** `git stash pop` it —
+> rewrite the block cleanly below, then drop the stash:
+> ```bash
+> git stash drop stash@{0}   # discard the preflight-gitignore stash (we rewrite it cleanly)
+> ```
 
 Ensure the end of `/Users/ag/projects/defconst/.gitignore` reads exactly:
 
@@ -423,7 +453,10 @@ jobs:
             _build
           key: ${{ runner.os }}-mix-${{ matrix.elixir }}-${{ matrix.otp }}-${{ hashFiles('**/mix.lock') }}
           restore-keys: ${{ runner.os }}-mix-${{ matrix.elixir }}-${{ matrix.otp }}-
+      # --only test excludes dev-only ex_doc, so this resolves no deps the lib doesn't ship.
       - run: mix deps.get --only test
+      # Consumer path: compile the library + run tests with runtime deps only (there are none).
+      - run: mix compile
       - run: mix test
 
   format:
@@ -440,6 +473,11 @@ jobs:
 
 Formatter output can differ between Elixir releases, so `mix format --check-formatted` runs
 in a **single** pinned `format` job (1.19), while compile/test runs across the full matrix.
+
+**This is the consumer-compatibility proof for the `~> 1.15` floor:** the `1.15/26` and
+`1.16/26` jobs fetch with `--only test` (no dev-only ex_doc), then `mix compile` + `mix test`
+exactly as a consumer on those versions would — the library has zero runtime deps, so a green
+job there proves the floor is real, not asserted.
 
 - [ ] **Step 2: Validate the YAML locally**
 
@@ -580,7 +618,12 @@ through a PR instead. Choose one:
     --body "master was behind Hex; this merges the published 0.2.5 commits (was on aram356/udpdate_ex_doc)."
   ```
 
-  After it merges, the revival PR (Step 2) targets the reconciled master.
+  **Merge this PR with a merge commit — do NOT squash.** A squash-merge rewrites
+  `d6f5c3d`/`7b91238` into a single new commit, so the revival branch's copies of those
+  commits would no longer be ancestors of `origin/master`; the two-dot `git log` check below
+  would then still list them and look like Option B. Preserve the original commits so the
+  branch histories line up. After it merges, the revival PR (Step 2) targets the reconciled
+  master.
 
 - **Option B (fold into the revival PR):** skip the separate PR; the revival PR already
   contains the 0.2.5 commits (the work branch was rebased onto them in Task 1). Call this
@@ -597,12 +640,20 @@ what the PR will contain:
 
 ```bash
 git fetch origin
+# Commits the PR will introduce (two-dot):
 git log --oneline origin/master..revive-and-modernize
+# Net file changes vs master (three-dot) — the source of truth regardless of merge style:
+git diff --stat origin/master...revive-and-modernize
 ```
 
-- If you took **Option A** (remote master already reconciled): the list shows only the
-  revival commits.
-- If you took **Option B** (folding in): the list shows the **two 0.2.5 commits**
+- If you took **Option A** with a **merge commit**: the two-dot log shows only the revival
+  commits, and the three-dot diff shows only the revival file changes (0.2.5 is already in
+  master).
+- If you took **Option A** but the reconcile PR was **squash-merged**: the two-dot log will
+  still list `d6f5c3d`/`7b91238` (their SHAs aren't in master), but the three-dot
+  `git diff --stat` should show **no** 0.2.5-only changes (the tree already matches). Trust
+  the three-dot diff here.
+- If you took **Option B** (folding in): the two-dot log shows the **two 0.2.5 commits**
   (`d6f5c3d`, `7b91238`) **plus** the revival commits. Confirm both are present — that
   confirms the PR carries the reconciliation.
 
@@ -651,10 +702,21 @@ Expected: all six jobs succeed — five test jobs (1.15/26, 1.16/26, 1.17/26, 1.
 
 - [ ] **Step 1 (maintainer): Merge the PR to `master`.**
 
-- [ ] **Step 2 (maintainer): Tag and push the release.**
+- [ ] **Step 2 (maintainer): Sanity-check the merged commit, then tag and push.**
+
+First confirm you are tagging the right commit — `mix.exs` is at `0.3.0`, the tag doesn't
+already exist, and the package builds:
 
 ```bash
 git checkout master && git pull
+grep '@version' mix.exs            # expect: @version "0.3.0"
+git tag --list v0.3.0              # expect: empty (tag does not exist yet)
+mix hex.build                      # expect: builds; file list includes CHANGELOG.md
+```
+
+Then tag and push:
+
+```bash
 git tag v0.3.0
 git push origin v0.3.0
 ```
@@ -671,7 +733,7 @@ Expected: prompts for confirmation and publishes `defconst 0.3.0`. Requires `mix
 
 ## Self-Review
 
-**Spec coverage:** WS0→Task 1, WS1→Task 2, WS2→Task 3, WS3→Task 4, WS4→Task 5, WS5→Task 6, WS6→Task 7, WS7→Task 8, WS8→Task 9. No gaps.
+**Spec coverage:** Task 0 (preflight/clean worktree — supports the "preflight a clean worktree" decision), WS0→Task 1, WS1→Task 2, WS2→Task 3, WS3→Task 4, WS4→Task 5, WS5→Task 6, WS6→Task 7, WS7→Task 8, WS8→Task 9. No gaps.
 
 **Placeholder scan:** No TBD/TODO placeholders; every code/config step shows complete content and exact commands. The only intentional substitution is the exact OTP patch version in `.tool-versions` (Task 2), which depends on what `asdf install` resolves.
 
@@ -682,5 +744,7 @@ Expected: prompts for confirmation and publishes `defconst 0.3.0`. Requires `mix
 **Review-finding coverage (round 3):** (1) ex_doc → latest `~> 0.40` per "use latest libraries"; floor risk neutralized via `mix deps.get --only test` in CI (Task 5 Step 1, Task 6). (2) wrong `-o` test filter replaced with full-file / line-target run (Task 4 Step 2). (3) Task 4 heading + step reworded to characterization (no "failing"/"TDD"). (4) `mix format --check-formatted` moved to a single-version `format` job (Task 6). (5) changelog/toolchain say OTP 28.1+ (Task 5 Step 3 changelog, PR body). (6) explicit `origin/master..revive-and-modernize` diff check added before opening the PR (Task 8 Step 1).
 
 **Review-finding coverage (round 4):** (1) Task 7 Markdown fence bug fixed — stray fence removed, bash block closed with triple backticks. (2) ex_doc `~> 0.40` prose clarified as "latest pre-1.0, admits future 0.4x+" (Task 5 Step 1). (3) support-floor semantics clarified — `~> 1.15` covers runtime/test; docs maintained on 1.19; full dev `deps.get` expected on 1.19 (Task 5 Step 1, spec success criteria). (4) `.gitignore` reconciled — worktree already had `.DS_Store`+`Thumbs.db` sans newline; Step 1 normalizes it, Step 8 reviews `git diff` before staging. (5) success criteria reworded — CI runs tests+format only, not docs/hex.build. (6) stale round-2 ex_doc `~> 0.34` log entry annotated as superseded.
+
+**Review-finding coverage (round 5):** (1) dirty `.gitignore` would block `git rebase` → **new Task 0** stashes it before branch ops; Task 3 Step 1 drops the stash and rewrites cleanly. (2) Option A squash-merge would defeat the two-dot log check → require merge-commit (no squash) **and** add three-dot `git diff --stat` as the source-of-truth validation. (3) consumer-path proof for `~> 1.15` made explicit → CI test jobs add `mix compile`; prose states the 1.15/1.16 jobs are the consumer compatibility proof. (4) spec wording aligned to "OS files" (`.DS_Store`+`Thumbs.db`). (5) release handoff adds version/tag/build sanity checks before tagging (Task 9 Step 2).
 
 **Type/name consistency:** `normalize_constant` consistent after rename; `constants`/`constant_of`/`value_of` match source and README; version `0.3.0` consistent across `mix.exs`, `CHANGELOG.md`, README, git tag; CI pairs are mutually compatible (1.15↔26, 1.16↔26, 1.17↔26, 1.18↔27, 1.19↔28).
