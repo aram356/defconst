@@ -132,7 +132,8 @@ behavior bug — stop and report before changing source.)
 ### 6. Release prep
 
 - Bump version to `0.3.0`.
-- Create `CHANGELOG.md` (baseline "since 0.2.5") **and** add it to `package.files`.
+- Create `CHANGELOG.md` (baseline "since 0.2.5"); add it to **both** `package.files` and the
+  docs `extras` (so `mix docs` renders it).
 - Update README: dependency hint → `~> 0.3.0`; document introspection functions.
 - Validate the package tarball: `mix hex.build` (and review `mix hex.publish --dry-run`).
 - Before publishing, the maintainer also runs `mix docs` (on Elixir 1.19) — `mix hex.publish`

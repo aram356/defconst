@@ -147,12 +147,27 @@ git status --porcelain docs/superpowers/
 
 - Create: `.tool-versions`
 
-- [ ] **Step 1: Add the Erlang asdf plugin**
+- [ ] **Step 1: Ensure the Elixir asdf plugin + version are present**
+
+`.tool-versions` (Step 3) pins `elixir 1.19.5-otp-28`, so that exact build must be installed
+or `elixir --version` (Step 4) fails with "No version is set"/"not installed". Verify, and
+install only if missing:
+
+```bash
+asdf plugin add elixir 2>/dev/null || true        # no-op if already added
+asdf list elixir 2>/dev/null | grep -q '1.19.5-otp-28' \
+  && echo "elixir 1.19.5-otp-28 already installed" \
+  || asdf install elixir 1.19.5-otp-28
+```
+Expected: `1.19.5-otp-28` is installed (on this machine it already is). The Elixir plugin
+ships prebuilt binaries, so this is fast — unlike the Erlang build below.
+
+- [ ] **Step 2: Add the Erlang asdf plugin**
 
 Run: `asdf plugin add erlang`
 Expected: plugin added (or "already added" — both fine).
 
-- [ ] **Step 2: Install a compatible OTP (≥ 28.1)**
+- [ ] **Step 3: Install a compatible OTP (≥ 28.1)**
 
 Elixir 1.19 requires OTP **28.1+**. Install the latest 28.1.x:
 
@@ -165,28 +180,28 @@ Expected: an OTP `28.1.x` (or newer 28.x) version installed and listed. Note the
 
 > NOTE: Erlang builds from source via kerl and can take several minutes plus build deps (autoconf, OpenSSL, wxWidgets). If the build fails for missing tooling, `brew install autoconf openssl wxwidgets` and retry. One-time setup.
 
-- [ ] **Step 3: Create `.tool-versions`**
+- [ ] **Step 4: Create `.tool-versions`**
 
-Create `/Users/ag/projects/defconst/.tool-versions` (replace `28.1.2` with the exact version from Step 2):
+Create `/Users/ag/projects/defconst/.tool-versions` (replace `28.1.2` with the exact version from Step 3):
 
 ```
 elixir 1.19.5-otp-28
 erlang 28.1.2
 ```
 
-- [ ] **Step 4: Verify the toolchain resolves**
+- [ ] **Step 5: Verify the toolchain resolves**
 
 Run (from the project dir): `elixir --version`
 Expected: prints Erlang/OTP 28 (28.1+) and Elixir 1.19.5 — no "erl: not found", no "No version is set".
 
-- [ ] **Step 5: Capture the green baseline**
+- [ ] **Step 6: Capture the green baseline**
 
 Run: `mix deps.get && mix test`
 Expected: deps fetch, all tests pass. Record the pass count.
 
 > If tests fail on the reconciled baseline, STOP and report — do not proceed.
 
-- [ ] **Step 6: Commit `.tool-versions` (targeted)**
+- [ ] **Step 7: Commit `.tool-versions` (targeted)**
 
 ```bash
 git add .tool-versions
@@ -506,10 +521,23 @@ in a **single** pinned `format` job (1.19), while compile/test runs across the f
 exactly as a consumer on those versions would — the library has zero runtime deps, so a green
 job there proves the floor is real, not asserted.
 
-- [ ] **Step 2: Validate the YAML locally**
+- [ ] **Step 2: Validate the workflow locally**
 
-Run: `ruby -ryaml -e "YAML.load_file('.github/workflows/ci.yml'); puts 'valid'"`
+First check it parses as YAML:
+
+```bash
+ruby -ryaml -e "YAML.load_file('.github/workflows/ci.yml'); puts 'valid'"
+```
 Expected: prints `valid`.
+
+Then lint Actions semantics (catches matrix/expression/runner mistakes YAML parsing can't).
+`actionlint` is available on this machine:
+
+```bash
+actionlint .github/workflows/ci.yml
+```
+Expected: no output (clean). If `actionlint` is not installed elsewhere, `brew install
+actionlint`; the PR CI run is still the ultimate gate.
 
 - [ ] **Step 3: Dry-run the exact test-job command sequence locally**
 
@@ -553,7 +581,7 @@ git commit -m "Add GitHub Actions CI matrix (Elixir 1.15-1.19 / OTP 26-28)"
 
 In `mix.exs`, change `@version "0.2.5"` → `@version "0.3.0"`.
 
-- [ ] **Step 2: Add `CHANGELOG.md` to the package files**
+- [ ] **Step 2: Add `CHANGELOG.md` to the package files and the docs extras**
 
 In `mix.exs`, update `package/0`'s `files:` list to include the changelog:
 
@@ -564,6 +592,15 @@ In `mix.exs`, update `package/0`'s `files:` list to include the changelog:
         "README.md",
         "CHANGELOG.md",
         "LICENSE"
+      ],
+```
+
+Also add it to the docs `extras` so `mix docs` renders it (currently `extras: ["README.md"]`):
+
+```elixir
+      docs: [
+        extras: ["README.md", "CHANGELOG.md"],
+        main: "Defconst"
       ],
 ```
 
@@ -817,5 +854,7 @@ Expected: prompts for confirmation and publishes `defconst 0.3.0`. Requires `mix
 **Review-finding coverage (round 7):** (1) Task 0 discard now **verifies the `.gitignore` diff** matches exactly the OS-ignore block before `git restore`; any other change → STOP. (2) consumer-floor claim gets an explicit **local dry-run** of the test-job command sequence (Task 6 Step 3) plus a "treat first green 1.15/1.16 CI as authoritative" note. (3) Task 9 pre-publish checks add **`mix docs`** (publish builds docs, so catch failures first). (4) Task 0 untracked-files wording softened — usually fine, but stop if Git reports they'd be overwritten. (5) round-5 stash log entry annotated as superseded by round 6.
 
 **Review-finding coverage (round 8):** (1) **corrected the PR-diff guidance** — net tree difference is the **two-dot** `git diff origin/master..branch` (three-dot re-shows 0.2.5 under squash-merge; verified empirically). Squash case now remedied by rebasing the branch onto the squashed master; merge-commit preferred. (2) removed the `git checkout --` destructive alternative in Task 0 — `git restore` only, after the diff check. (3) format job: documented it intentionally needs no `mix deps.get` (`.formatter.exs` has no `import_deps`). (4) added `mix docs` to Task 7 Step 5 (README/CHANGELOG feed docs). (5) spec "OTP 28" → "OTP 28.1+".
+
+**Review-finding coverage (round 9):** (1) Task 2 **new Step 1** ensures the Elixir asdf plugin + `1.19.5-otp-28` are installed (verify-or-install) before `.tool-versions`/`elixir --version`; remaining steps renumbered. (2) Task 7 Step 2 now adds `CHANGELOG.md` to the docs **`extras`** (not just `package.files`), making the `mix docs` claim accurate. (3) Task 6 Step 2 adds **`actionlint`** (installed locally) for Actions-semantics linting beyond YAML parsing.
 
 **Type/name consistency:** `normalize_constant` consistent after rename; `constants`/`constant_of`/`value_of` match source and README; version `0.3.0` consistent across `mix.exs`, `CHANGELOG.md`, README, git tag; CI pairs are mutually compatible (1.15↔26, 1.16↔26, 1.17↔26, 1.18↔27, 1.19↔28).
