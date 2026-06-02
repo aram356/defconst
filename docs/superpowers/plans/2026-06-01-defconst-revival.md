@@ -2,21 +2,21 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Revive the dormant `defconst` Elixir library — reconcile the published 0.2.5 onto master, fix deprecations, modernize dev dependencies, add tests + CI, and prepare a `0.3.0` release delivered via a pull request, with Hex publish gated to the maintainer.
+**Goal:** Revive the dormant `defconst` Elixir library — reconcile the published 0.2.5 onto main, fix deprecations, modernize dev dependencies, add tests + CI, and prepare a `0.3.0` release delivered via a pull request, with Hex publish gated to the maintainer.
 
-**Architecture:** A small (~280 LOC) pure-macro Elixir library with no runtime dependencies. The published 0.2.5 lives on an unmerged branch; we reconcile it to `master` first, then layer the 0.3.0 modernization on top. The existing ExUnit + doctest suite (plus new `constant_of/1` tests) is the regression gate — run it after every change.
+**Architecture:** A small (~280 LOC) pure-macro Elixir library with no runtime dependencies. The published 0.2.5 lives on an unmerged branch; we reconcile it to `main` first, then layer the 0.3.0 modernization on top. The existing ExUnit + doctest suite (plus new `constant_of/1` tests) is the regression gate — run it after every change.
 
 **Tech Stack:** Elixir 1.19 / Erlang OTP 28.1+, Mix, ExUnit, ex_doc, asdf, GitHub Actions (`erlef/setup-beam`).
 
 **Spec:** `docs/superpowers/specs/2026-06-01-defconst-revival-design.md`
 
-**Branch:** 0.3.0 work lands on `revive-and-modernize` (created off the _reconciled_ master). The spec is already committed there and will be carried across the rebase in Task 1.
+**Branch:** 0.3.0 work lands on `revive-and-modernize` (created off the _reconciled_ main). The spec is already committed there and will be carried across the rebase in Task 1.
 
 ---
 
 ## File Structure
 
-- `master` branch — **Reconciled via PR.** Bring it up to published 0.2.5 (`origin/aram356/udpdate_ex_doc`) through a pull request, not a direct push. Locally fast-forward only to base the work branch.
+- `main` branch — **Reconciled via PR.** Bring it up to published 0.2.5 (`origin/aram356/udpdate_ex_doc`) through a pull request, not a direct push. Locally fast-forward only to base the work branch.
 - `.tool-versions` — **Create.** Pins `elixir 1.19.5-otp-28` + real `erlang 28.1+`.
 - `.gitignore` — **Modify.** Add OS files (`.DS_Store`, `Thumbs.db`).
 - `config/config.exs` — **Delete.** Deprecated `use Mix.Config`; no runtime config exists.
@@ -34,7 +34,7 @@
 
 **Files:** git operations only.
 
-> Task 1 runs `git checkout master` and `git rebase master`. **`git rebase` refuses to run
+> Task 1 runs `git checkout main` and `git rebase main`. **`git rebase` refuses to run
 > with unstaged changes.** Ensure a clean tracked worktree before any branch operations.
 
 - [ ] **Step 1: Inspect the worktree and classify dirt**
@@ -74,37 +74,37 @@ git status --porcelain         # expect: no tracked modifications (untracked ?? 
 
 ---
 
-## Task 1: Reconcile published 0.2.5 onto master, rebase work branch
+## Task 1: Reconcile published 0.2.5 onto main, rebase work branch
 
 **Files:** git operations only.
 
-- [ ] **Step 1: Confirm the published-baseline branch and its relationship to master**
+- [ ] **Step 1: Confirm the published-baseline branch and its relationship to main**
 
 ```bash
 git fetch origin
-git log --oneline master..origin/aram356/udpdate_ex_doc
+git log --oneline main..origin/aram356/udpdate_ex_doc
 git show origin/aram356/udpdate_ex_doc:mix.exs | grep '@version'
 ```
 
 Expected: exactly two commits ahead (`d6f5c3d Updated ex_doc`, `7b91238 Bump version`); version shows `0.2.5`. Confirms a clean fast-forward is possible.
 
-- [ ] **Step 2: Locally fast-forward master to base the work on 0.2.5**
+- [ ] **Step 2: Locally fast-forward main to base the work on 0.2.5**
 
-This is a **local** base-update only — it is NOT pushed. Remote `master` is reconciled via a PR (Step 5 / Task 8), respecting branch protection.
+This is a **local** base-update only — it is NOT pushed. Remote `main` is reconciled via a PR (Step 5 / Task 8), respecting branch protection.
 
 ```bash
-git checkout master
+git checkout main
 git merge --ff-only origin/aram356/udpdate_ex_doc
 git log --oneline -1
 ```
 
-Expected: local `master` now points at `7b91238` (0.2.5). If `--ff-only` is refused, STOP and report — do not force; the branch may have diverged unexpectedly.
+Expected: local `main` now points at `7b91238` (0.2.5). If `--ff-only` is refused, STOP and report — do not force; the branch may have diverged unexpectedly.
 
 - [ ] **Step 3: Rebase the work branch onto the reconciled base**
 
 ```bash
 git checkout revive-and-modernize
-git rebase master
+git rebase main
 ```
 
 Expected: the spec commit replays cleanly on top of 0.2.5. No conflicts are expected (only `docs/` was added on the branch).
@@ -140,8 +140,8 @@ git status --porcelain docs/superpowers/
   git commit -m "Add 0.3.0 spec and implementation plan"
   ```
 
-> Remote `master` reconciliation (merging the published 0.2.5 commits) is delivered through
-> a PR — see Task 8 Step 1. Do not `git push origin master` directly anywhere in this plan.
+> Remote `main` reconciliation (merging the published 0.2.5 commits) is delivered through
+> a PR — see Task 8 Step 1. Do not `git push origin main` directly anywhere in this plan.
 
 ---
 
@@ -460,9 +460,9 @@ name: CI
 
 on:
   push:
-    branches: [master]
+    branches: [main]
   pull_request:
-    branches: [master]
+    branches: [main]
 
 jobs:
   test:
@@ -701,26 +701,26 @@ git commit -m "Prepare 0.3.0 release: version bump, changelog, README, package f
 
 **Files:** none (git/GitHub operations only)
 
-- [ ] **Step 1: Reconcile remote master via PR, then push the feature branch**
+- [ ] **Step 1: Reconcile remote main via PR, then push the feature branch**
 
-Do **not** `git push origin master`. Reconcile the published 0.2.5 onto remote `master`
+Do **not** `git push origin main`. Reconcile the published 0.2.5 onto remote `main`
 through a PR instead. Choose one:
 
 - **Option A (separate reconcile PR, cleaner history):** open a PR from the existing
-  published branch into master and merge it first:
+  published branch into main and merge it first:
 
   ```bash
-  gh pr create --base master --head aram356/udpdate_ex_doc \
-    --title "Reconcile published 0.2.5 onto master" \
-    --body "master was behind Hex; this merges the published 0.2.5 commits (was on aram356/udpdate_ex_doc)."
+  gh pr create --base main --head aram356/udpdate_ex_doc \
+    --title "Reconcile published 0.2.5 onto main" \
+    --body "main was behind Hex; this merges the published 0.2.5 commits (was on aram356/udpdate_ex_doc)."
   ```
 
   **Merge this PR with a merge commit — do NOT squash.** A squash-merge rewrites
   `d6f5c3d`/`7b91238` into a single new commit, so the revival branch's copies of those
-  commits would no longer be ancestors of `origin/master`; the two-dot `git log` check below
+  commits would no longer be ancestors of `origin/main`; the two-dot `git log` check below
   would then still list them and look like Option B. Preserve the original commits so the
   branch histories line up. After it merges, the revival PR (Step 2) targets the reconciled
-  master.
+  main.
 
 - **Option B (fold into the revival PR):** skip the separate PR; the revival PR already
   contains the 0.2.5 commits (the work branch was rebased onto them in Task 1). Call this
@@ -732,33 +732,33 @@ Then push the work branch:
 git push -u origin revive-and-modernize
 ```
 
-Before opening the revival PR, **verify the diff against remote master** so you know exactly
+Before opening the revival PR, **verify the diff against remote main** so you know exactly
 what the PR will contain:
 
 ```bash
 git fetch origin
-# Commits in the branch but not master, by SHA (two-dot log):
-git log --oneline origin/master..revive-and-modernize
+# Commits in the branch but not main, by SHA (two-dot log):
+git log --oneline origin/main..revive-and-modernize
 # Net file difference between the two tips — the source of truth (TWO-dot diff):
-git diff --stat origin/master..revive-and-modernize
+git diff --stat origin/main..revive-and-modernize
 ```
 
 > **Use the two-dot `..` diff, not three-dot `...`.** Three-dot diffs from the _merge-base_,
 > so if the reconcile PR was squash-merged (new SHA, merge-base stays old), `...` re-shows the
-> 0.2.5 changes even though master already contains them. The two-dot `..` compares the tips
+> 0.2.5 changes even though main already contains them. The two-dot `..` compares the tips
 > directly and shows the true net change. (Verified empirically.)
 
 - **Option A merged with a merge commit:** two-dot log shows only the revival commits;
   two-dot diff shows only the revival file changes. ✓ Clean.
 - **Option A squash-merged:** the two-dot **log** still lists `d6f5c3d`/`7b91238` (their SHAs
-  aren't in the squashed master), but the two-dot **diff** correctly shows only the revival
+  aren't in the squashed main), but the two-dot **diff** correctly shows only the revival
   changes (0.2.5 tree already matches). The mismatch is cosmetic _for the local check_ — but
   **GitHub's PR "Files changed" view uses three-dot**, so the revival PR would _appear_ to
-  re-introduce 0.2.5. Fix it by realigning history: rebase the branch onto the squashed master
+  re-introduce 0.2.5. Fix it by realigning history: rebase the branch onto the squashed main
   so the duplicate 0.2.5 commits drop out (git detects them as already applied):
   ```bash
-  git rebase origin/master
-  git diff --stat origin/master..revive-and-modernize   # re-verify: revival changes only
+  git rebase origin/main
+  git diff --stat origin/main..revive-and-modernize   # re-verify: revival changes only
   ```
   (This is why a **merge commit is preferred** for Option A — it avoids the rebase entirely.)
 - **Option B (folding in):** two-dot log shows the **two 0.2.5 commits** (`d6f5c3d`,
@@ -768,13 +768,13 @@ git diff --stat origin/master..revive-and-modernize
 - [ ] **Step 2: Open the pull request**
 
 ```bash
-gh pr create --base master --head revive-and-modernize \
+gh pr create --base main --head revive-and-modernize \
   --title "Revive & modernize defconst for 0.3.0" \
   --body "$(cat <<'EOF'
 Revives the dormant library and prepares a 0.3.0 release.
 
 ## Reconciliation
-- master was behind the published 0.2.5 (it lived on aram356/udpdate_ex_doc). This work is based on the reconciled 0.2.5 baseline.
+- main was behind the published 0.2.5 (it lived on aram356/udpdate_ex_doc). This work is based on the reconciled 0.2.5 baseline.
 
 ## Changes
 - Pin toolchain (Elixir 1.19.5 / OTP 28.1+) via .tool-versions; ignore OS files (.DS_Store, Thumbs.db)
@@ -808,7 +808,7 @@ Expected: all six jobs succeed — five test jobs (1.15/26, 1.16/26, 1.17/26, 1.
 
 **Do NOT execute autonomously.** `mix hex.publish` is outward-facing, irreversible, and requires the maintainer's Hex credentials. Performed by the maintainer after merge.
 
-- [ ] **Step 1 (maintainer): Merge the PR to `master`.**
+- [ ] **Step 1 (maintainer): Merge the PR to `main`.**
 
 - [ ] **Step 2 (maintainer): Sanity-check the merged commit, then tag and push.**
 
@@ -817,7 +817,7 @@ already exist, and **both** the package and the docs build (`mix hex.publish` bu
 publishes docs as part of publishing, so a doc-build failure would otherwise surface mid-publish):
 
 ```bash
-git checkout master && git pull
+git checkout main && git pull
 grep '@version' mix.exs            # expect: @version "0.3.0"
 git tag --list v0.3.0              # expect: empty (tag does not exist yet)
 mix deps.get                       # dev deps incl. ex_doc (run on Elixir 1.19 / OTP 28.1+)
@@ -850,9 +850,9 @@ Expected: prompts for confirmation and publishes `defconst 0.3.0`. Requires `mix
 
 **Review-finding coverage (round 1):** (1) 0.2.5 reconciliation → Task 1; changelog baseline "since 0.2.5" + corrected "Added" list → Task 7 Step 3. (2) targeted `git add`, `.DS_Store` ignored → all commits + Task 3. (3) CHANGELOG in `package.files` + `mix hex.build` gate → Task 7 Steps 2/5. (4) OTP ≥ 28.1 pin → Task 2. (5) CI matrix aligned to spec → Task 6. (6) Elixir floor → Task 5. (7) `constant_of/1` tests → Task 4. (8) goal reworded → header + spec.
 
-**Review-finding coverage (round 2):** (1) floor↔CI consistency → keep `~> 1.15`, CI now tests 1.15/1.16 (Task 5 + Task 6). (2) no direct `master` push → reconciliation via PR (Task 1 Step 2 note, Task 8 Step 1). (3) Task 3 commit no longer re-runs `git rm` (uses `git add -u` fallback). (4) ex*doc constraint corrected to `~> 0.20` → `~> 0.34` *(later superseded in round 3: now `~> 0.40`, latest)\_ (Task 5 Step 1). (5) TDD reworded to characterization (Task 4 / spec WS3). (6) plan commit now required (Task 1 Step 5). (7) spec 0.2.5 dep wording tightened (lock-only 0.21.2).
+**Review-finding coverage (round 2):** (1) floor↔CI consistency → keep `~> 1.15`, CI now tests 1.15/1.16 (Task 5 + Task 6). (2) no direct `main` push → reconciliation via PR (Task 1 Step 2 note, Task 8 Step 1). (3) Task 3 commit no longer re-runs `git rm` (uses `git add -u` fallback). (4) ex*doc constraint corrected to `~> 0.20` → `~> 0.34` *(later superseded in round 3: now `~> 0.40`, latest)\_ (Task 5 Step 1). (5) TDD reworded to characterization (Task 4 / spec WS3). (6) plan commit now required (Task 1 Step 5). (7) spec 0.2.5 dep wording tightened (lock-only 0.21.2).
 
-**Review-finding coverage (round 3):** (1) ex_doc → latest `~> 0.40` per "use latest libraries"; floor risk neutralized via `mix deps.get --only test` in CI (Task 5 Step 1, Task 6). (2) wrong `-o` test filter replaced with full-file / line-target run (Task 4 Step 2). (3) Task 4 heading + step reworded to characterization (no "failing"/"TDD"). (4) `mix format --check-formatted` moved to a single-version `format` job (Task 6). (5) changelog/toolchain say OTP 28.1+ (Task 5 Step 3 changelog, PR body). (6) explicit `origin/master..revive-and-modernize` diff check added before opening the PR (Task 8 Step 1).
+**Review-finding coverage (round 3):** (1) ex_doc → latest `~> 0.40` per "use latest libraries"; floor risk neutralized via `mix deps.get --only test` in CI (Task 5 Step 1, Task 6). (2) wrong `-o` test filter replaced with full-file / line-target run (Task 4 Step 2). (3) Task 4 heading + step reworded to characterization (no "failing"/"TDD"). (4) `mix format --check-formatted` moved to a single-version `format` job (Task 6). (5) changelog/toolchain say OTP 28.1+ (Task 5 Step 3 changelog, PR body). (6) explicit `origin/main..revive-and-modernize` diff check added before opening the PR (Task 8 Step 1).
 
 **Review-finding coverage (round 4):** (1) Task 7 Markdown fence bug fixed — stray fence removed, bash block closed with triple backticks. (2) ex_doc `~> 0.40` prose clarified as "latest pre-1.0, admits future 0.4x+" (Task 5 Step 1). (3) support-floor semantics clarified — `~> 1.15` covers runtime/test; docs maintained on 1.19; full dev `deps.get` expected on 1.19 (Task 5 Step 1, spec success criteria). (4) `.gitignore` reconciled — worktree already had `.DS_Store`+`Thumbs.db` sans newline; Step 1 normalizes it, Step 8 reviews `git diff` before staging. (5) success criteria reworded — CI runs tests+format only, not docs/hex.build. (6) stale round-2 ex_doc `~> 0.34` log entry annotated as superseded.
 
@@ -862,7 +862,7 @@ Expected: prompts for confirmation and publishes `defconst 0.3.0`. Requires `mix
 
 **Review-finding coverage (round 7):** (1) Task 0 discard now **verifies the `.gitignore` diff** matches exactly the OS-ignore block before `git restore`; any other change → STOP. (2) consumer-floor claim gets an explicit **local dry-run** of the test-job command sequence (Task 6 Step 3) plus a "treat first green 1.15/1.16 CI as authoritative" note. (3) Task 9 pre-publish checks add **`mix docs`** (publish builds docs, so catch failures first). (4) Task 0 untracked-files wording softened — usually fine, but stop if Git reports they'd be overwritten. (5) round-5 stash log entry annotated as superseded by round 6.
 
-**Review-finding coverage (round 8):** (1) **corrected the PR-diff guidance** — net tree difference is the **two-dot** `git diff origin/master..branch` (three-dot re-shows 0.2.5 under squash-merge; verified empirically). Squash case now remedied by rebasing the branch onto the squashed master; merge-commit preferred. (2) removed the `git checkout --` destructive alternative in Task 0 — `git restore` only, after the diff check. (3) format job: documented it intentionally needs no `mix deps.get` (`.formatter.exs` has no `import_deps`). (4) added `mix docs` to Task 7 Step 5 (README/CHANGELOG feed docs). (5) spec "OTP 28" → "OTP 28.1+".
+**Review-finding coverage (round 8):** (1) **corrected the PR-diff guidance** — net tree difference is the **two-dot** `git diff origin/main..branch` (three-dot re-shows 0.2.5 under squash-merge; verified empirically). Squash case now remedied by rebasing the branch onto the squashed main; merge-commit preferred. (2) removed the `git checkout --` destructive alternative in Task 0 — `git restore` only, after the diff check. (3) format job: documented it intentionally needs no `mix deps.get` (`.formatter.exs` has no `import_deps`). (4) added `mix docs` to Task 7 Step 5 (README/CHANGELOG feed docs). (5) spec "OTP 28" → "OTP 28.1+".
 
 **Review-finding coverage (round 9):** (1) Task 2 **new Step 1** ensures the Elixir asdf plugin + `1.19.5-otp-28` are installed (verify-or-install) before `.tool-versions`/`elixir --version`; remaining steps renumbered. (2) Task 7 Step 2 now adds `CHANGELOG.md` to the docs **`extras`** (not just `package.files`), making the `mix docs` claim accurate. (3) Task 6 Step 2 adds **`actionlint`** (installed locally) for Actions-semantics linting beyond YAML parsing.
 
