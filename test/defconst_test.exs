@@ -269,4 +269,53 @@ defmodule DefconstTest do
       assert TestDupConst.constant_of(999) == nil
     end
   end
+
+  describe "duplicate constant names" do
+    test "defconst with a duplicate name raises a clear compile error" do
+      code = """
+      defmodule DupViaDefconst do
+        use Defconst
+
+        defconst :a, 1
+        defconst :a, 2
+      end
+      """
+
+      err = assert_raise CompileError, fn -> Code.compile_string(code) end
+      assert err.description =~ "duplicate constant name"
+      assert err.description =~ ":a"
+    end
+
+    test "defenum with a duplicate name raises a clear compile error" do
+      code = """
+      defmodule DupViaDefenum do
+        use Defconst
+
+        defenum [
+          {:a, 1},
+          {:b, 2},
+          {:a, 3}
+        ]
+      end
+      """
+
+      err = assert_raise CompileError, fn -> Code.compile_string(code) end
+      assert err.description =~ "duplicate constant name"
+      assert err.description =~ ":a"
+    end
+
+    test "unique names with duplicate values still compile and constant_of returns a list" do
+      code = """
+      defmodule UniqueNamesDupValues do
+        use Defconst
+
+        defconst :a, 1
+        defconst :b, 1
+      end
+      """
+
+      [{mod, _bin} | _] = Code.compile_string(code)
+      assert mod.constant_of(1) == [:a, :b]
+    end
+  end
 end

@@ -54,6 +54,17 @@ defmodule Defconst do
       |> Module.get_attribute(:constants)
       |> Enum.reverse()
 
+    names = Keyword.keys(constants)
+    duplicate_names = names -- Enum.uniq(names)
+
+    unless duplicate_names == [] do
+      raise CompileError,
+        file: env.file,
+        line: env.line,
+        description:
+          "Defconst: duplicate constant name(s): #{inspect(Enum.uniq(duplicate_names))}"
+    end
+
     constant_map = Enum.into(constants, %{})
 
     value_map =
