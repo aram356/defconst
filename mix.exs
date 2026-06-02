@@ -1,7 +1,7 @@
 defmodule Defconst.MixProject do
   use Mix.Project
 
-  @version "0.2.5"
+  @version "0.3.0"
 
   def project do
     [
@@ -18,7 +18,7 @@ defmodule Defconst.MixProject do
 
       # Docs
       docs: [
-        extras: ["README.md"],
+        extras: ["README.md", "CHANGELOG.md"],
         main: "Defconst"
       ],
       homepage_url: "https://github.com/aram356/defconst",
@@ -52,6 +52,7 @@ defmodule Defconst.MixProject do
         "lib",
         "mix.exs",
         "README.md",
+        "CHANGELOG.md",
         "LICENSE"
       ],
       maintainers: ["Aram Grigoryan"],

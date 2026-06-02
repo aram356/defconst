@@ -9,7 +9,7 @@ Defconst can be installed by adding `defconst` to your list of dependencies in `
 ```elixir
 def deps do
   [
-    {:defconst, "~> 0.2.2"}
+    {:defconst, "~> 0.3.0"}
   ]
 end
 ```
@@ -45,6 +45,20 @@ defmodule ConstUse1 do
     "two"
   end
 end
+```
+
+### Introspection
+
+Modules that `use Defconst` also expose:
+
+- `constants/0` — all constants as `[{name, value}, ...]`
+- `value_of/1` — the value for a constant name
+- `constant_of/1` — the constant name for a value (a list if several share the value, `nil` if none)
+
+```elixir
+ConstType1.constants()        #=> [{:one, 1}, {:two, 2}]
+ConstType1.value_of(:one)     #=> 1
+ConstType1.constant_of(2)     #=> :two
 ```
 
 ### defenum
