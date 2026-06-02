@@ -42,18 +42,27 @@
 ```bash
 git status --porcelain
 ```
-Interpret the output (ignore untracked files — lines starting with `??` — they don't block
-rebase):
+Interpret the output (untracked files — lines starting with `??` — are usually fine and don't
+block rebase; **but** if a later `git checkout`/`git rebase` reports an untracked file *would
+be overwritten* by the target branch, STOP and move that file aside first):
 - **Only `.gitignore` is modified** (` M .gitignore`): expected; it's a pending OS-ignore
   edit that Task 3 Step 1 rewrites from scratch. Proceed to Step 2.
 - **Any *other* tracked file is modified or staged:** STOP and reconcile it — the plan
   assumes a clean start and must not sweep up unrelated changes.
 - **Nothing modified:** skip Step 2.
 
-- [ ] **Step 2: Discard the pending `.gitignore` edit**
+- [ ] **Step 2: Verify, then discard the pending `.gitignore` edit**
 
-Because Task 3 Step 1 recreates `.gitignore` cleanly, simply discard the working-tree edit
-(no stash needed — avoids any ambiguity about which stash to restore later):
+`git restore` is destructive (it drops the working-tree edit), so **confirm the diff is
+exactly the expected OS-ignore block before discarding.** Task 3 Step 1 recreates `.gitignore`
+cleanly, so discarding this specific known edit loses nothing.
+
+```bash
+git diff .gitignore
+```
+Expected diff: an appended block adding `# OS`, `.DS_Store`, and `Thumbs.db` (and nothing
+else). If the diff contains **any other change**, STOP — do not discard; investigate and
+reconcile manually. If it matches:
 
 ```bash
 git restore .gitignore        # or: git checkout -- .gitignore
@@ -500,7 +509,27 @@ job there proves the floor is real, not asserted.
 Run: `ruby -ryaml -e "YAML.load_file('.github/workflows/ci.yml'); puts 'valid'"`
 Expected: prints `valid`.
 
-- [ ] **Step 3: Commit (targeted)**
+- [ ] **Step 3: Dry-run the exact test-job command sequence locally**
+
+The `~> 1.15` consumer claim hinges on `mix deps.get --only test` not pulling/validating the
+dev-only ex_doc. Prove the **command sequence itself** works (env + flags) on the local
+toolchain before trusting CI. From a clean checkout dir (so the local `deps/`/`_build` don't
+mask issues — e.g. a temp clone or `git clean -n` first):
+
+```bash
+MIX_ENV=test mix deps.get --only test
+MIX_ENV=test mix compile
+MIX_ENV=test mix test
+```
+Expected: deps resolve **without** fetching ex_doc, compile succeeds, tests pass. This
+confirms the sequence on Elixir 1.19; the **1.15/1.16 CI jobs are the authoritative proof on
+those versions** — treat the first green CI run as the verification of the floor, and do not
+merge until those two jobs pass.
+
+> If the local dry-run fails resolution because of the dev-only ex_doc, that is exactly the
+> failure mode to catch here — fix before pushing (e.g. confirm ex_doc is `only: :dev`).
+
+- [ ] **Step 4: Commit (targeted)**
 
 ```bash
 git add .github/workflows/ci.yml
@@ -721,13 +750,16 @@ Expected: all six jobs succeed — five test jobs (1.15/26, 1.16/26, 1.17/26, 1.
 - [ ] **Step 2 (maintainer): Sanity-check the merged commit, then tag and push.**
 
 First confirm you are tagging the right commit — `mix.exs` is at `0.3.0`, the tag doesn't
-already exist, and the package builds:
+already exist, and **both** the package and the docs build (`mix hex.publish` builds and
+publishes docs as part of publishing, so a doc-build failure would otherwise surface mid-publish):
 
 ```bash
 git checkout master && git pull
 grep '@version' mix.exs            # expect: @version "0.3.0"
 git tag --list v0.3.0              # expect: empty (tag does not exist yet)
+mix deps.get                       # dev deps incl. ex_doc (run on Elixir 1.19 / OTP 28.1+)
 mix hex.build                      # expect: builds; file list includes CHANGELOG.md
+mix docs                           # expect: docs build cleanly (catches ex_doc failures pre-publish)
 ```
 
 Then tag and push:
@@ -761,8 +793,10 @@ Expected: prompts for confirmation and publishes `defconst 0.3.0`. Requires `mix
 
 **Review-finding coverage (round 4):** (1) Task 7 Markdown fence bug fixed — stray fence removed, bash block closed with triple backticks. (2) ex_doc `~> 0.40` prose clarified as "latest pre-1.0, admits future 0.4x+" (Task 5 Step 1). (3) support-floor semantics clarified — `~> 1.15` covers runtime/test; docs maintained on 1.19; full dev `deps.get` expected on 1.19 (Task 5 Step 1, spec success criteria). (4) `.gitignore` reconciled — worktree already had `.DS_Store`+`Thumbs.db` sans newline; Step 1 normalizes it, Step 8 reviews `git diff` before staging. (5) success criteria reworded — CI runs tests+format only, not docs/hex.build. (6) stale round-2 ex_doc `~> 0.34` log entry annotated as superseded.
 
-**Review-finding coverage (round 5):** (1) dirty `.gitignore` would block `git rebase` → **new Task 0** stashes it before branch ops; Task 3 Step 1 drops the stash and rewrites cleanly. (2) Option A squash-merge would defeat the two-dot log check → require merge-commit (no squash) **and** add three-dot `git diff --stat` as the source-of-truth validation. (3) consumer-path proof for `~> 1.15` made explicit → CI test jobs add `mix compile`; prose states the 1.15/1.16 jobs are the consumer compatibility proof. (4) spec wording aligned to "OS files" (`.DS_Store`+`Thumbs.db`). (5) release handoff adds version/tag/build sanity checks before tagging (Task 9 Step 2).
+**Review-finding coverage (round 5):** (1) dirty `.gitignore` would block `git rebase` → **new Task 0** *(round 5 used a stash; **superseded in round 6** by `git restore` — see round-6 note item 3)*. (2) Option A squash-merge would defeat the two-dot log check → require merge-commit (no squash) **and** add three-dot `git diff --stat` as the source-of-truth validation. (3) consumer-path proof for `~> 1.15` made explicit → CI test jobs add `mix compile`; prose states the 1.15/1.16 jobs are the consumer compatibility proof. (4) spec wording aligned to "OS files" (`.DS_Store`+`Thumbs.db`). (5) release handoff adds version/tag/build sanity checks before tagging (Task 9 Step 2).
 
 **Review-finding coverage (round 6):** (1) bare `mix compile` would run in dev and expect dev-only ex_doc → test job now sets job-level `MIX_ENV: test`. (2) Task 1 Step 5 made conditional — verify the plan is tracked/clean and commit only if `git status` shows changes (no empty-commit error). (3) brittle stash drop removed — Task 0 now `git restore`s the `.gitignore` edit (recreated in Task 3), no stash to track. (4) Task 0 generalized — classify dirt: only-`.gitignore` proceeds, any other tracked change STOPs, untracked ignored (no reliance on `.DS_Store` invisibility). (5) File Structure bullet → "OS files". (6) PR body → "ignore OS files (.DS_Store, Thumbs.db)".
+
+**Review-finding coverage (round 7):** (1) Task 0 discard now **verifies the `.gitignore` diff** matches exactly the OS-ignore block before `git restore`; any other change → STOP. (2) consumer-floor claim gets an explicit **local dry-run** of the test-job command sequence (Task 6 Step 3) plus a "treat first green 1.15/1.16 CI as authoritative" note. (3) Task 9 pre-publish checks add **`mix docs`** (publish builds docs, so catch failures first). (4) Task 0 untracked-files wording softened — usually fine, but stop if Git reports they'd be overwritten. (5) round-5 stash log entry annotated as superseded by round 6.
 
 **Type/name consistency:** `normalize_constant` consistent after rename; `constants`/`constant_of`/`value_of` match source and README; version `0.3.0` consistent across `mix.exs`, `CHANGELOG.md`, README, git tag; CI pairs are mutually compatible (1.15↔26, 1.16↔26, 1.17↔26, 1.18↔27, 1.19↔28).

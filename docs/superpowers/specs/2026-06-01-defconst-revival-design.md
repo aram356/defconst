@@ -135,6 +135,8 @@ behavior bug — stop and report before changing source.)
 - Create `CHANGELOG.md` (baseline "since 0.2.5") **and** add it to `package.files`.
 - Update README: dependency hint → `~> 0.3.0`; document introspection functions.
 - Validate the package tarball: `mix hex.build` (and review `mix hex.publish --dry-run`).
+- Before publishing, the maintainer also runs `mix docs` (on Elixir 1.19) — `mix hex.publish`
+  builds docs as part of publishing, so doc-build failures are caught beforehand.
 
 **Verify:** `mix test` green; `mix hex.build` succeeds and the file list includes `CHANGELOG.md`.
 
