@@ -18,7 +18,7 @@
 
 - `master` branch — **Reconciled via PR.** Bring it up to published 0.2.5 (`origin/aram356/udpdate_ex_doc`) through a pull request, not a direct push. Locally fast-forward only to base the work branch.
 - `.tool-versions` — **Create.** Pins `elixir 1.19.5-otp-28` + real `erlang 28.1+`.
-- `.gitignore` — **Modify.** Add `.DS_Store`.
+- `.gitignore` — **Modify.** Add OS files (`.DS_Store`, `Thumbs.db`).
 - `config/config.exs` — **Delete.** Deprecated `use Mix.Config`; no runtime config exists.
 - `lib/defconst.ex` — **Modify.** Fix `value_of` doc example, rename `normalize_contant`, document `constant_of` return shape.
 - `test/defconst_test.exs` — **Modify.** Add `constant_of/1` list + nil coverage.
@@ -35,26 +35,30 @@
 **Files:** git operations only.
 
 > Task 1 runs `git checkout master` and `git rebase master`. **`git rebase` refuses to run
-> with unstaged changes**, and the worktree currently has a pending `.gitignore` edit. Clear
-> it before any branch operations; it is recreated (normalized) in Task 3 Step 1.
+> with unstaged changes.** Ensure a clean tracked worktree before any branch operations.
 
-- [ ] **Step 1: Inspect the worktree**
+- [ ] **Step 1: Inspect the worktree and classify dirt**
 
 ```bash
 git status --porcelain
 ```
-Expected: only ` M .gitignore` (the pending OS-ignore edit). `.DS_Store` does **not** appear
-because the worktree `.gitignore` already ignores it. If anything *else* is modified, STOP
-and reconcile it before continuing.
+Interpret the output (ignore untracked files — lines starting with `??` — they don't block
+rebase):
+- **Only `.gitignore` is modified** (` M .gitignore`): expected; it's a pending OS-ignore
+  edit that Task 3 Step 1 rewrites from scratch. Proceed to Step 2.
+- **Any *other* tracked file is modified or staged:** STOP and reconcile it — the plan
+  assumes a clean start and must not sweep up unrelated changes.
+- **Nothing modified:** skip Step 2.
 
-- [ ] **Step 2: Stash the pending `.gitignore` edit**
+- [ ] **Step 2: Discard the pending `.gitignore` edit**
+
+Because Task 3 Step 1 recreates `.gitignore` cleanly, simply discard the working-tree edit
+(no stash needed — avoids any ambiguity about which stash to restore later):
 
 ```bash
-git stash push -m "preflight-gitignore" -- .gitignore
-git status --porcelain   # expect: clean (no output)
+git restore .gitignore        # or: git checkout -- .gitignore
+git status --porcelain         # expect: no tracked modifications (untracked ?? lines are fine)
 ```
-Expected: clean worktree. (Task 3 Step 1 rewrites `.gitignore` from scratch, so this stash
-is just to unblock the rebase; it will be dropped there.)
 
 ---
 
@@ -102,14 +106,26 @@ grep -n 'constant_of\|value_of' lib/defconst.ex | head
 
 Expected: version `0.2.5`; `constant_of`/`value_of` present (they already shipped in 0.2.5).
 
-- [ ] **Step 5: Commit the implementation plan (required)**
+- [ ] **Step 5: Ensure the implementation plan is committed (conditional)**
 
-The plan must travel with the PR, so commit it now with a targeted add:
+The plan (and spec) must travel with the PR. They were likely already committed while the
+plan was authored, and the rebase in Step 3 carries those commits forward — so this is a
+**verify, commit only if needed** step, not an unconditional commit (an empty `git commit`
+would error).
 
 ```bash
-git add docs/superpowers/plans/2026-06-01-defconst-revival.md
-git commit -m "Add 0.3.0 implementation plan"
+# Is the plan tracked and free of uncommitted changes?
+git ls-files --error-unmatch docs/superpowers/plans/2026-06-01-defconst-revival.md >/dev/null 2>&1 \
+  && echo "plan is tracked" || echo "plan is UNTRACKED"
+git status --porcelain docs/superpowers/
 ```
+- If `git status` shows **no output** for `docs/superpowers/` and the plan is tracked: it is
+  already committed — **skip the commit.**
+- If it shows changes (untracked or modified): commit just those:
+  ```bash
+  git add docs/superpowers/
+  git commit -m "Add 0.3.0 spec and implementation plan"
+  ```
 
 > Remote `master` reconciliation (merging the published 0.2.5 commits) is delivered through
 > a PR — see Task 8 Step 1. Do not `git push origin master` directly anywhere in this plan.
@@ -179,12 +195,9 @@ git commit -m "Pin toolchain: Elixir 1.19.5 / OTP 28.1+"
 
 - [ ] **Step 1: Reconcile the OS-ignore lines in `.gitignore`**
 
-> NOTE: the original `.gitignore` edit was stashed in Task 0 (it appended `# OS` /
-> `.DS_Store` / `Thumbs.db` **without a trailing newline**). Do **not** `git stash pop` it —
-> rewrite the block cleanly below, then drop the stash:
-> ```bash
-> git stash drop stash@{0}   # discard the preflight-gitignore stash (we rewrite it cleanly)
-> ```
+> NOTE: the original worktree `.gitignore` edit (appended `# OS` / `.DS_Store` / `Thumbs.db`
+> **without a trailing newline**) was discarded in Task 0 Step 2. Recreate the block cleanly
+> here, with a proper trailing newline.
 
 Ensure the end of `/Users/ag/projects/defconst/.gitignore` reads exactly:
 
@@ -424,6 +437,8 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    env:
+      MIX_ENV: test
     strategy:
       fail-fast: false
       matrix:
@@ -453,7 +468,8 @@ jobs:
             _build
           key: ${{ runner.os }}-mix-${{ matrix.elixir }}-${{ matrix.otp }}-${{ hashFiles('**/mix.lock') }}
           restore-keys: ${{ runner.os }}-mix-${{ matrix.elixir }}-${{ matrix.otp }}-
-      # --only test excludes dev-only ex_doc, so this resolves no deps the lib doesn't ship.
+      # Job-level MIX_ENV=test means compile/test never expect the dev-only ex_doc dep.
+      # --only test excludes ex_doc from resolution, so no deps the lib doesn't ship are pulled.
       - run: mix deps.get --only test
       # Consumer path: compile the library + run tests with runtime deps only (there are none).
       - run: mix compile
@@ -669,7 +685,7 @@ Revives the dormant library and prepares a 0.3.0 release.
 - master was behind the published 0.2.5 (it lived on aram356/udpdate_ex_doc). This work is based on the reconciled 0.2.5 baseline.
 
 ## Changes
-- Pin toolchain (Elixir 1.19.5 / OTP 28.1+) via .tool-versions; ignore .DS_Store
+- Pin toolchain (Elixir 1.19.5 / OTP 28.1+) via .tool-versions; ignore OS files (.DS_Store, Thumbs.db)
 - Remove deprecated config/config.exs (use Mix.Config)
 - Fix value_of doc example; rename normalize_contant typo; document constant_of return shape
 - Add tests for constant_of/1 list + nil paths
@@ -746,5 +762,7 @@ Expected: prompts for confirmation and publishes `defconst 0.3.0`. Requires `mix
 **Review-finding coverage (round 4):** (1) Task 7 Markdown fence bug fixed — stray fence removed, bash block closed with triple backticks. (2) ex_doc `~> 0.40` prose clarified as "latest pre-1.0, admits future 0.4x+" (Task 5 Step 1). (3) support-floor semantics clarified — `~> 1.15` covers runtime/test; docs maintained on 1.19; full dev `deps.get` expected on 1.19 (Task 5 Step 1, spec success criteria). (4) `.gitignore` reconciled — worktree already had `.DS_Store`+`Thumbs.db` sans newline; Step 1 normalizes it, Step 8 reviews `git diff` before staging. (5) success criteria reworded — CI runs tests+format only, not docs/hex.build. (6) stale round-2 ex_doc `~> 0.34` log entry annotated as superseded.
 
 **Review-finding coverage (round 5):** (1) dirty `.gitignore` would block `git rebase` → **new Task 0** stashes it before branch ops; Task 3 Step 1 drops the stash and rewrites cleanly. (2) Option A squash-merge would defeat the two-dot log check → require merge-commit (no squash) **and** add three-dot `git diff --stat` as the source-of-truth validation. (3) consumer-path proof for `~> 1.15` made explicit → CI test jobs add `mix compile`; prose states the 1.15/1.16 jobs are the consumer compatibility proof. (4) spec wording aligned to "OS files" (`.DS_Store`+`Thumbs.db`). (5) release handoff adds version/tag/build sanity checks before tagging (Task 9 Step 2).
+
+**Review-finding coverage (round 6):** (1) bare `mix compile` would run in dev and expect dev-only ex_doc → test job now sets job-level `MIX_ENV: test`. (2) Task 1 Step 5 made conditional — verify the plan is tracked/clean and commit only if `git status` shows changes (no empty-commit error). (3) brittle stash drop removed — Task 0 now `git restore`s the `.gitignore` edit (recreated in Task 3), no stash to track. (4) Task 0 generalized — classify dirt: only-`.gitignore` proceeds, any other tracked change STOPs, untracked ignored (no reliance on `.DS_Store` invisibility). (5) File Structure bullet → "OS files". (6) PR body → "ignore OS files (.DS_Store, Thumbs.db)".
 
 **Type/name consistency:** `normalize_constant` consistent after rename; `constants`/`constant_of`/`value_of` match source and README; version `0.3.0` consistent across `mix.exs`, `CHANGELOG.md`, README, git tag; CI pairs are mutually compatible (1.15↔26, 1.16↔26, 1.17↔26, 1.18↔27, 1.19↔28).

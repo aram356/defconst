@@ -119,9 +119,11 @@ behavior bug — stop and report before changing source.)
 
 - Add `.github/workflows/ci.yml` (`erlef/setup-beam`); matrix 1.15/26, 1.16/26, 1.17/26,
   1.18/27, 1.19/28.
-- Test matrix steps: `mix deps.get --only test`, `mix compile`, `mix test` (no formatter —
-  see below). The 1.15/1.16 jobs are the **consumer-compatibility proof** for the `~> 1.15`
-  floor (lib compiles + tests pass with runtime deps only — there are none).
+- Test matrix runs with job-level `MIX_ENV: test`; steps: `mix deps.get --only test`,
+  `mix compile`, `mix test` (no formatter — see below). The test env ensures compile/test
+  never expect the dev-only ex_doc. The 1.15/1.16 jobs are the **consumer-compatibility
+  proof** for the `~> 1.15` floor (lib compiles + tests pass with runtime deps only — there
+  are none).
 - A separate single-version `format` job (Elixir 1.19) runs `mix format --check-formatted`,
   since formatter output can differ between Elixir releases.
 
