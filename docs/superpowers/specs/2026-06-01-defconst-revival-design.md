@@ -77,7 +77,8 @@ delivered through a PR, not a direct `git push origin master`.
 
 ### 1. Toolchain & green baseline
 
-- Add asdf `erlang` plugin; install OTP ≥ 28.1; commit `.tool-versions`
+- Ensure the asdf `elixir` plugin + `1.19.5-otp-28` are installed (verify-or-install); add
+  asdf `erlang` plugin; install OTP ≥ 28.1; commit `.tool-versions`
   (`elixir 1.19.5-otp-28` + the installed `erlang 28.1+`).
 - Run `mix deps.get && mix test` on the reconciled baseline to capture a known-green start.
 

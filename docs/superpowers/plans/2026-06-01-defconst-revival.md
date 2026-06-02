@@ -22,7 +22,7 @@
 - `config/config.exs` — **Delete.** Deprecated `use Mix.Config`; no runtime config exists.
 - `lib/defconst.ex` — **Modify.** Fix `value_of` doc example, rename `normalize_contant`, document `constant_of` return shape.
 - `test/defconst_test.exs` — **Modify.** Add `constant_of/1` list + nil coverage.
-- `mix.exs` — **Modify.** Bump `ex_doc`, raise `elixir:` floor, bump version, add CHANGELOG to `package.files`.
+- `mix.exs` — **Modify.** Bump `ex_doc`, raise `elixir:` floor, bump version, add CHANGELOG to `package.files` **and** docs `extras`.
 - `mix.lock` — **Delete + regenerate.**
 - `.github/workflows/ci.yml` — **Create.** CI matrix.
 - `CHANGELOG.md` — **Create.** Baseline "since 0.2.5".
@@ -641,8 +641,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.2.5] - 2020-01-08
 
-Last previously published release. Included `constants/0`, `constant_of/1`, `value_of/1`,
-and `ex_doc 0.21`.
+Last previously published release. Included `constants/0`, `constant_of/1`, and `value_of/1`.
+(Its `mix.lock` resolved the dev-only `ex_doc` to 0.21.2; the constraint stayed `~> 0.20`.)
 ```
 
 - [ ] **Step 4: Update the README**
@@ -774,7 +774,7 @@ Revives the dormant library and prepares a 0.3.0 release.
 - Add tests for constant_of/1 list + nil paths
 - Modernize ex_doc to latest ~> 0.40 (dev-only); keep Elixir floor at ~> 1.15 (CI-verified); regenerate mix.lock
 - Add GitHub Actions CI: test matrix (Elixir 1.15-1.19 / OTP 26-28) + dedicated format job
-- 0.3.0: version bump, CHANGELOG (since 0.2.5), README updates, CHANGELOG added to package files
+- 0.3.0: version bump, CHANGELOG (since 0.2.5) added to package files and docs extras, README updates
 
 ## Verification
 - mix test green locally on OTP 28.1+
@@ -856,5 +856,7 @@ Expected: prompts for confirmation and publishes `defconst 0.3.0`. Requires `mix
 **Review-finding coverage (round 8):** (1) **corrected the PR-diff guidance** — net tree difference is the **two-dot** `git diff origin/master..branch` (three-dot re-shows 0.2.5 under squash-merge; verified empirically). Squash case now remedied by rebasing the branch onto the squashed master; merge-commit preferred. (2) removed the `git checkout --` destructive alternative in Task 0 — `git restore` only, after the diff check. (3) format job: documented it intentionally needs no `mix deps.get` (`.formatter.exs` has no `import_deps`). (4) added `mix docs` to Task 7 Step 5 (README/CHANGELOG feed docs). (5) spec "OTP 28" → "OTP 28.1+".
 
 **Review-finding coverage (round 9):** (1) Task 2 **new Step 1** ensures the Elixir asdf plugin + `1.19.5-otp-28` are installed (verify-or-install) before `.tool-versions`/`elixir --version`; remaining steps renumbered. (2) Task 7 Step 2 now adds `CHANGELOG.md` to the docs **`extras`** (not just `package.files`), making the `mix docs` claim accurate. (3) Task 6 Step 2 adds **`actionlint`** (installed locally) for Actions-semantics linting beyond YAML parsing.
+
+**Review-finding coverage (round 10):** (1) spec toolchain WS now mentions ensuring the Elixir asdf plugin/version. (2) plan File Structure + PR body aligned — CHANGELOG added to **both** `package.files` and docs `extras`. (3) 0.2.5 changelog entry corrected — `ex_doc 0.21.2` was a dev/docs **lock** resolution (constraint stayed `~> 0.20`), not package/runtime behavior.
 
 **Type/name consistency:** `normalize_constant` consistent after rename; `constants`/`constant_of`/`value_of` match source and README; version `0.3.0` consistent across `mix.exs`, `CHANGELOG.md`, README, git tag; CI pairs are mutually compatible (1.15↔26, 1.16↔26, 1.17↔26, 1.18↔27, 1.19↔28).
