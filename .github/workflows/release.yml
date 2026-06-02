@@ -10,7 +10,7 @@ jobs:
     # Docs publishing needs the dev-only ex_doc, so this job runs on the version where
     # ex_doc 0.40 builds and fetches dev deps (a full mix deps.get, not --only test).
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: erlef/setup-beam@v1
         with:
           elixir-version: "1.19"
