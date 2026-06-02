@@ -7,7 +7,7 @@ defmodule Defconst.MixProject do
     [
       app: :defconst,
       deps: deps(),
-      elixir: "~> 1.6",
+      elixir: "~> 1.15",
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
       version: @version,
@@ -40,7 +40,7 @@ defmodule Defconst.MixProject do
   end
 
   defp deps do
-    [{:ex_doc, "~> 0.20", only: :dev, runtime: false}]
+    [{:ex_doc, "~> 0.40", only: :dev, runtime: false}]
   end
 
   # Specifies which paths to compile per environment.
