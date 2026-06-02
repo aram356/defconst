@@ -170,16 +170,16 @@ across Elixir 1.15–1.19 / OTP 26–28, a formatting check, and a quality job
 Releases are published to Hex automatically by CI
 ([`.github/workflows/release.yml`](.github/workflows/release.yml)):
 
-1. Bump `@version` in `mix.exs` and update [`CHANGELOG.md`](CHANGELOG.md); merge to `master`.
-2. Sync and confirm the merged `master` carries the target version:
+1. Bump `@version` in `mix.exs` and update [`CHANGELOG.md`](CHANGELOG.md); merge to `main`.
+2. Sync and confirm the merged `main` carries the target version:
    ```sh
    git fetch origin --tags
-   git show origin/master:mix.exs | grep '@version'   # expect the version you're releasing
+   git show origin/main:mix.exs | grep '@version'   # expect the version you're releasing
    ```
 3. Create the tag **on the released commit** and push it (don't let the Release UI auto-create
    the tag — that can place it on the wrong commit):
    ```sh
-   git tag vX.Y.Z origin/master
+   git tag vX.Y.Z origin/main
    git push origin vX.Y.Z
    ```
 4. Create the GitHub Release from that existing tag:
