@@ -13,15 +13,15 @@ release, rather than from a maintainer's machine.
 
 ## Decisions
 
-| Decision | Choice |
-|---|---|
-| Trigger | GitHub **Release published** (`on: release: types: [published]`) |
-| Scope | Package **and** docs (`mix hex.publish --yes`) |
-| Safety gate | Verify the release tag (minus leading `v`) equals `mix.exs` `@version`; fail on mismatch |
-| Auth | `HEX_API_KEY` repo secret, passed as env to the publish step |
-| Toolchain | Elixir 1.19 / OTP 28 (where ex_doc 0.40 builds; docs publishing needs dev-only ex_doc) |
-| Deps | Full `mix deps.get` (dev deps incl. ex_doc) — NOT `--only test`, because docs are published |
-| Existing CI | `ci.yml` unchanged; this is a separate release-only workflow |
+| Decision    | Choice                                                                                      |
+| ----------- | ------------------------------------------------------------------------------------------- |
+| Trigger     | GitHub **Release published** (`on: release: types: [published]`)                            |
+| Scope       | Package **and** docs (`mix hex.publish --yes`)                                              |
+| Safety gate | Verify the release tag (minus leading `v`) equals `mix.exs` `@version`; fail on mismatch    |
+| Auth        | `HEX_API_KEY` repo secret, passed as env to the publish step                                |
+| Toolchain   | Elixir 1.19 / OTP 28 (where ex_doc 0.40 builds; docs publishing needs dev-only ex_doc)      |
+| Deps        | Full `mix deps.get` (dev deps incl. ex_doc) — NOT `--only test`, because docs are published |
+| Existing CI | `ci.yml` unchanged; this is a separate release-only workflow                                |
 
 ## Component
 

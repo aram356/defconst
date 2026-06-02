@@ -42,12 +42,14 @@
 ```bash
 git status --porcelain
 ```
+
 Interpret the output (untracked files — lines starting with `??` — are usually fine and don't
-block rebase; **but** if a later `git checkout`/`git rebase` reports an untracked file *would
-be overwritten* by the target branch, STOP and move that file aside first):
+block rebase; **but** if a later `git checkout`/`git rebase` reports an untracked file _would
+be overwritten_ by the target branch, STOP and move that file aside first):
+
 - **Only `.gitignore` is modified** (` M .gitignore`): expected; it's a pending OS-ignore
   edit that Task 3 Step 1 rewrites from scratch. Proceed to Step 2.
-- **Any *other* tracked file is modified or staged:** STOP and reconcile it — the plan
+- **Any _other_ tracked file is modified or staged:** STOP and reconcile it — the plan
   assumes a clean start and must not sweep up unrelated changes.
 - **Nothing modified:** skip Step 2.
 
@@ -60,6 +62,7 @@ cleanly, so discarding this specific known edit loses nothing.
 ```bash
 git diff .gitignore
 ```
+
 Expected diff: an appended block adding `# OS`, `.DS_Store`, and `Thumbs.db` (and nothing
 else). If the diff contains **any other change**, STOP — do not discard; investigate and
 reconcile manually. If it matches:
@@ -128,6 +131,7 @@ git ls-files --error-unmatch docs/superpowers/plans/2026-06-01-defconst-revival.
   && echo "plan is tracked" || echo "plan is UNTRACKED"
 git status --porcelain docs/superpowers/
 ```
+
 - If `git status` shows **no output** for `docs/superpowers/` and the plan is tracked: it is
   already committed — **skip the commit.**
 - If it shows changes (untracked or modified): commit just those:
@@ -159,6 +163,7 @@ asdf list elixir 2>/dev/null | grep -q '1.19.5-otp-28' \
   && echo "elixir 1.19.5-otp-28 already installed" \
   || asdf install elixir 1.19.5-otp-28
 ```
+
 Expected: `1.19.5-otp-28` is installed (on this machine it already is). The Elixir plugin
 ships prebuilt binaries, so this is fast — unlike the Erlang build below.
 
@@ -351,11 +356,12 @@ Add a new `describe` block to `test/defconst_test.exs` with a fixture module tha
 
 - [ ] **Step 2: Run the new tests to confirm current behavior**
 
-Run the whole file (ExUnit's `--only`/`-o` filters *tags*, not `describe`/`test` names, so a name filter would silently match zero tests):
+Run the whole file (ExUnit's `--only`/`-o` filters _tags_, not `describe`/`test` names, so a name filter would silently match zero tests):
 
 ```bash
 mix test test/defconst_test.exs
 ```
+
 To run only the inserted cases, target them by line number instead, e.g. `mix test test/defconst_test.exs:251` (use the actual line of each new `test`).
 
 Expected: the three new tests **pass** because the existing `constant_of` already implements list/nil correctly. If any fail, that is a real behavior bug — STOP and report actual vs. expected before changing source.
@@ -528,6 +534,7 @@ First check it parses as YAML:
 ```bash
 ruby -ryaml -e "YAML.load_file('.github/workflows/ci.yml'); puts 'valid'"
 ```
+
 Expected: prints `valid`.
 
 Then lint Actions semantics (catches matrix/expression/runner mistakes YAML parsing can't).
@@ -536,6 +543,7 @@ Then lint Actions semantics (catches matrix/expression/runner mistakes YAML pars
 ```bash
 actionlint .github/workflows/ci.yml
 ```
+
 Expected: no output (clean). If `actionlint` is not installed elsewhere, `brew install
 actionlint`; the PR CI run is still the ultimate gate.
 
@@ -551,6 +559,7 @@ MIX_ENV=test mix deps.get --only test
 MIX_ENV=test mix compile
 MIX_ENV=test mix test
 ```
+
 Expected: deps resolve **without** fetching ex_doc, compile succeeds, tests pass. This
 confirms the sequence on Elixir 1.19; the **1.15/1.16 CI jobs are the authoritative proof on
 those versions** — treat the first green CI run as the verification of the floor, and do not
@@ -734,7 +743,7 @@ git log --oneline origin/master..revive-and-modernize
 git diff --stat origin/master..revive-and-modernize
 ```
 
-> **Use the two-dot `..` diff, not three-dot `...`.** Three-dot diffs from the *merge-base*,
+> **Use the two-dot `..` diff, not three-dot `...`.** Three-dot diffs from the _merge-base_,
 > so if the reconcile PR was squash-merged (new SHA, merge-base stays old), `...` re-shows the
 > 0.2.5 changes even though master already contains them. The two-dot `..` compares the tips
 > directly and shows the true net change. (Verified empirically.)
@@ -743,8 +752,8 @@ git diff --stat origin/master..revive-and-modernize
   two-dot diff shows only the revival file changes. ✓ Clean.
 - **Option A squash-merged:** the two-dot **log** still lists `d6f5c3d`/`7b91238` (their SHAs
   aren't in the squashed master), but the two-dot **diff** correctly shows only the revival
-  changes (0.2.5 tree already matches). The mismatch is cosmetic *for the local check* — but
-  **GitHub's PR "Files changed" view uses three-dot**, so the revival PR would *appear* to
+  changes (0.2.5 tree already matches). The mismatch is cosmetic _for the local check_ — but
+  **GitHub's PR "Files changed" view uses three-dot**, so the revival PR would _appear_ to
   re-introduce 0.2.5. Fix it by realigning history: rebase the branch onto the squashed master
   so the duplicate 0.2.5 commits drop out (git detects them as already applied):
   ```bash
@@ -841,13 +850,13 @@ Expected: prompts for confirmation and publishes `defconst 0.3.0`. Requires `mix
 
 **Review-finding coverage (round 1):** (1) 0.2.5 reconciliation → Task 1; changelog baseline "since 0.2.5" + corrected "Added" list → Task 7 Step 3. (2) targeted `git add`, `.DS_Store` ignored → all commits + Task 3. (3) CHANGELOG in `package.files` + `mix hex.build` gate → Task 7 Steps 2/5. (4) OTP ≥ 28.1 pin → Task 2. (5) CI matrix aligned to spec → Task 6. (6) Elixir floor → Task 5. (7) `constant_of/1` tests → Task 4. (8) goal reworded → header + spec.
 
-**Review-finding coverage (round 2):** (1) floor↔CI consistency → keep `~> 1.15`, CI now tests 1.15/1.16 (Task 5 + Task 6). (2) no direct `master` push → reconciliation via PR (Task 1 Step 2 note, Task 8 Step 1). (3) Task 3 commit no longer re-runs `git rm` (uses `git add -u` fallback). (4) ex_doc constraint corrected to `~> 0.20` → `~> 0.34` *(later superseded in round 3: now `~> 0.40`, latest)* (Task 5 Step 1). (5) TDD reworded to characterization (Task 4 / spec WS3). (6) plan commit now required (Task 1 Step 5). (7) spec 0.2.5 dep wording tightened (lock-only 0.21.2).
+**Review-finding coverage (round 2):** (1) floor↔CI consistency → keep `~> 1.15`, CI now tests 1.15/1.16 (Task 5 + Task 6). (2) no direct `master` push → reconciliation via PR (Task 1 Step 2 note, Task 8 Step 1). (3) Task 3 commit no longer re-runs `git rm` (uses `git add -u` fallback). (4) ex*doc constraint corrected to `~> 0.20` → `~> 0.34` *(later superseded in round 3: now `~> 0.40`, latest)\_ (Task 5 Step 1). (5) TDD reworded to characterization (Task 4 / spec WS3). (6) plan commit now required (Task 1 Step 5). (7) spec 0.2.5 dep wording tightened (lock-only 0.21.2).
 
 **Review-finding coverage (round 3):** (1) ex_doc → latest `~> 0.40` per "use latest libraries"; floor risk neutralized via `mix deps.get --only test` in CI (Task 5 Step 1, Task 6). (2) wrong `-o` test filter replaced with full-file / line-target run (Task 4 Step 2). (3) Task 4 heading + step reworded to characterization (no "failing"/"TDD"). (4) `mix format --check-formatted` moved to a single-version `format` job (Task 6). (5) changelog/toolchain say OTP 28.1+ (Task 5 Step 3 changelog, PR body). (6) explicit `origin/master..revive-and-modernize` diff check added before opening the PR (Task 8 Step 1).
 
 **Review-finding coverage (round 4):** (1) Task 7 Markdown fence bug fixed — stray fence removed, bash block closed with triple backticks. (2) ex_doc `~> 0.40` prose clarified as "latest pre-1.0, admits future 0.4x+" (Task 5 Step 1). (3) support-floor semantics clarified — `~> 1.15` covers runtime/test; docs maintained on 1.19; full dev `deps.get` expected on 1.19 (Task 5 Step 1, spec success criteria). (4) `.gitignore` reconciled — worktree already had `.DS_Store`+`Thumbs.db` sans newline; Step 1 normalizes it, Step 8 reviews `git diff` before staging. (5) success criteria reworded — CI runs tests+format only, not docs/hex.build. (6) stale round-2 ex_doc `~> 0.34` log entry annotated as superseded.
 
-**Review-finding coverage (round 5):** (1) dirty `.gitignore` would block `git rebase` → **new Task 0** *(round 5 used a stash; **superseded in round 6** by `git restore` — see round-6 note item 3)*. (2) Option A squash-merge would defeat the two-dot log check → require merge-commit (no squash) **and** add three-dot `git diff --stat` as the source-of-truth validation. (3) consumer-path proof for `~> 1.15` made explicit → CI test jobs add `mix compile`; prose states the 1.15/1.16 jobs are the consumer compatibility proof. (4) spec wording aligned to "OS files" (`.DS_Store`+`Thumbs.db`). (5) release handoff adds version/tag/build sanity checks before tagging (Task 9 Step 2).
+**Review-finding coverage (round 5):** (1) dirty `.gitignore` would block `git rebase` → **new Task 0** _(round 5 used a stash; **superseded in round 6** by `git restore` — see round-6 note item 3)_. (2) Option A squash-merge would defeat the two-dot log check → require merge-commit (no squash) **and** add three-dot `git diff --stat` as the source-of-truth validation. (3) consumer-path proof for `~> 1.15` made explicit → CI test jobs add `mix compile`; prose states the 1.15/1.16 jobs are the consumer compatibility proof. (4) spec wording aligned to "OS files" (`.DS_Store`+`Thumbs.db`). (5) release handoff adds version/tag/build sanity checks before tagging (Task 9 Step 2).
 
 **Review-finding coverage (round 6):** (1) bare `mix compile` would run in dev and expect dev-only ex_doc → test job now sets job-level `MIX_ENV: test`. (2) Task 1 Step 5 made conditional — verify the plan is tracked/clean and commit only if `git status` shows changes (no empty-commit error). (3) brittle stash drop removed — Task 0 now `git restore`s the `.gitignore` edit (recreated in Task 3), no stash to track. (4) Task 0 generalized — classify dirt: only-`.gitignore` proceeds, any other tracked change STOPs, untracked ignored (no reliance on `.DS_Store` invisibility). (5) File Structure bullet → "OS files". (6) PR body → "ignore OS files (.DS_Store, Thumbs.db)".
 

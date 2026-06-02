@@ -5,7 +5,7 @@
 [![Docs](https://img.shields.io/badge/hex-docs-blue.svg)](https://hexdocs.pm/defconst)
 [![License](https://img.shields.io/hexpm/l/defconst.svg)](LICENSE)
 
-This package provides `defconst` macro for defining a single constant and `defenum` macro for defining a list of enumerated constant values.  The defined constants and enumerated constants are referencable in any expression as well as in guards statements.
+This package provides `defconst` macro for defining a single constant and `defenum` macro for defining a list of enumerated constant values. The defined constants and enumerated constants are referencable in any expression as well as in guards statements.
 
 Documentation is published at [hexdocs.pm/defconst](https://hexdocs.pm/defconst).
 
@@ -30,6 +30,7 @@ end
 ### defconst
 
 Define `ConstType1` module with constants
+
 ```elixir
 defmodule ConstType1 do
   use Defconst
@@ -75,6 +76,7 @@ ConstType1.constant_of(2)     #=> :two
 ### defenum
 
 Define `EnumType1` module with default values
+
 ```elixir
 defmodule EnumType1 do
   use Defconst
@@ -88,6 +90,7 @@ end
 ```
 
 Use `EnumType1` module
+
 ```elixir
 defmodule EnumUse1 do
   require EnumType1
@@ -106,7 +109,9 @@ defmodule EnumUse1 do
   end
 end
 ```
+
 Define `EnumType2` with specific values
+
 ```elixir
 defmodule EnumType2 do
   use Defconst
@@ -120,6 +125,7 @@ end
 ```
 
 Define `EnumType3` using `EnumGenerator3`
+
 ```elixir
 defmodule EnumGenerator3 do
   @behaviour Defconst.Enum.Generator

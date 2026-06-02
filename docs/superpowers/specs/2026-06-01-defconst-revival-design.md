@@ -53,7 +53,7 @@ so consumers are unaffected at runtime today. The work is low-risk modernization
 | `config/config.exs`  | Delete (pure-macro lib has no runtime config)                                                                                                                                                              |
 | `constant_of` return | Keep behavior; **document AND add tests** (list / `nil` paths)                                                                                                                                             |
 | `CHANGELOG.md`       | Create **and** add to `package.files`; validate with `mix hex.build` / dry-run                                                                                                                             |
-| Commits              | Targeted `git add <paths>` only; never `git add -A`; gitignore OS files (`.DS_Store`, `Thumbs.db`); preflight a clean worktree before branch ops                                                                                                                                 |
+| Commits              | Targeted `git add <paths>` only; never `git add -A`; gitignore OS files (`.DS_Store`, `Thumbs.db`); preflight a clean worktree before branch ops                                                           |
 | Delivery             | All 0.3.0 work on a feature branch via a pull request (MR)                                                                                                                                                 |
 | Publish              | Gated hand-off to maintainer; not done autonomously                                                                                                                                                        |
 
