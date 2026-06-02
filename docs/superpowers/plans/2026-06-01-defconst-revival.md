@@ -65,7 +65,7 @@ else). If the diff contains **any other change**, STOP — do not discard; inves
 reconcile manually. If it matches:
 
 ```bash
-git restore .gitignore        # or: git checkout -- .gitignore
+git restore .gitignore
 git status --porcelain         # expect: no tracked modifications (untracked ?? lines are fine)
 ```
 
@@ -493,6 +493,8 @@ jobs:
         with:
           elixir-version: "1.19"
           otp-version: "28"
+      # No mix deps.get needed: .formatter.exs has no `import_deps`, so formatting
+      # requires no dependencies. (If `import_deps:` is ever added, add `mix deps.get` here.)
       - run: mix format --check-formatted
 ```
 
@@ -626,15 +628,19 @@ ConstType1.constant_of(2)     #=> :two
 ```
 ````
 
-- [ ] **Step 5: Verify build, tests, formatting, and package tarball**
+- [ ] **Step 5: Verify build, tests, formatting, docs, and package tarball**
 
 ```bash
 mix test
 mix format --check-formatted
+mix docs            # README/CHANGELOG changes here feed the docs — confirm they build
 mix hex.build
 ```
 
-Expected: tests pass; formatter clean; `mix hex.build` succeeds and its printed file list **includes `CHANGELOG.md`**. Optionally review `mix hex.publish --dry-run` (does not publish) to confirm metadata.
+Expected: tests pass; formatter clean; `mix docs` builds without error (it consumes the
+updated `README.md`/`CHANGELOG.md`); `mix hex.build` succeeds and its printed file list
+**includes `CHANGELOG.md`**. Optionally review `mix hex.publish --dry-run` (does not publish)
+to confirm metadata.
 
 - [ ] **Step 6: Commit (targeted)**
 
@@ -685,22 +691,33 @@ what the PR will contain:
 
 ```bash
 git fetch origin
-# Commits the PR will introduce (two-dot):
+# Commits in the branch but not master, by SHA (two-dot log):
 git log --oneline origin/master..revive-and-modernize
-# Net file changes vs master (three-dot) — the source of truth regardless of merge style:
-git diff --stat origin/master...revive-and-modernize
+# Net file difference between the two tips — the source of truth (TWO-dot diff):
+git diff --stat origin/master..revive-and-modernize
 ```
 
-- If you took **Option A** with a **merge commit**: the two-dot log shows only the revival
-  commits, and the three-dot diff shows only the revival file changes (0.2.5 is already in
-  master).
-- If you took **Option A** but the reconcile PR was **squash-merged**: the two-dot log will
-  still list `d6f5c3d`/`7b91238` (their SHAs aren't in master), but the three-dot
-  `git diff --stat` should show **no** 0.2.5-only changes (the tree already matches). Trust
-  the three-dot diff here.
-- If you took **Option B** (folding in): the two-dot log shows the **two 0.2.5 commits**
-  (`d6f5c3d`, `7b91238`) **plus** the revival commits. Confirm both are present — that
-  confirms the PR carries the reconciliation.
+> **Use the two-dot `..` diff, not three-dot `...`.** Three-dot diffs from the *merge-base*,
+> so if the reconcile PR was squash-merged (new SHA, merge-base stays old), `...` re-shows the
+> 0.2.5 changes even though master already contains them. The two-dot `..` compares the tips
+> directly and shows the true net change. (Verified empirically.)
+
+- **Option A merged with a merge commit:** two-dot log shows only the revival commits;
+  two-dot diff shows only the revival file changes. ✓ Clean.
+- **Option A squash-merged:** the two-dot **log** still lists `d6f5c3d`/`7b91238` (their SHAs
+  aren't in the squashed master), but the two-dot **diff** correctly shows only the revival
+  changes (0.2.5 tree already matches). The mismatch is cosmetic *for the local check* — but
+  **GitHub's PR "Files changed" view uses three-dot**, so the revival PR would *appear* to
+  re-introduce 0.2.5. Fix it by realigning history: rebase the branch onto the squashed master
+  so the duplicate 0.2.5 commits drop out (git detects them as already applied):
+  ```bash
+  git rebase origin/master
+  git diff --stat origin/master..revive-and-modernize   # re-verify: revival changes only
+  ```
+  (This is why a **merge commit is preferred** for Option A — it avoids the rebase entirely.)
+- **Option B (folding in):** two-dot log shows the **two 0.2.5 commits** (`d6f5c3d`,
+  `7b91238`) **plus** the revival commits — both expected, confirming the PR carries the
+  reconciliation; two-dot diff shows the 0.2.5 + revival file changes.
 
 - [ ] **Step 2: Open the pull request**
 
@@ -798,5 +815,7 @@ Expected: prompts for confirmation and publishes `defconst 0.3.0`. Requires `mix
 **Review-finding coverage (round 6):** (1) bare `mix compile` would run in dev and expect dev-only ex_doc → test job now sets job-level `MIX_ENV: test`. (2) Task 1 Step 5 made conditional — verify the plan is tracked/clean and commit only if `git status` shows changes (no empty-commit error). (3) brittle stash drop removed — Task 0 now `git restore`s the `.gitignore` edit (recreated in Task 3), no stash to track. (4) Task 0 generalized — classify dirt: only-`.gitignore` proceeds, any other tracked change STOPs, untracked ignored (no reliance on `.DS_Store` invisibility). (5) File Structure bullet → "OS files". (6) PR body → "ignore OS files (.DS_Store, Thumbs.db)".
 
 **Review-finding coverage (round 7):** (1) Task 0 discard now **verifies the `.gitignore` diff** matches exactly the OS-ignore block before `git restore`; any other change → STOP. (2) consumer-floor claim gets an explicit **local dry-run** of the test-job command sequence (Task 6 Step 3) plus a "treat first green 1.15/1.16 CI as authoritative" note. (3) Task 9 pre-publish checks add **`mix docs`** (publish builds docs, so catch failures first). (4) Task 0 untracked-files wording softened — usually fine, but stop if Git reports they'd be overwritten. (5) round-5 stash log entry annotated as superseded by round 6.
+
+**Review-finding coverage (round 8):** (1) **corrected the PR-diff guidance** — net tree difference is the **two-dot** `git diff origin/master..branch` (three-dot re-shows 0.2.5 under squash-merge; verified empirically). Squash case now remedied by rebasing the branch onto the squashed master; merge-commit preferred. (2) removed the `git checkout --` destructive alternative in Task 0 — `git restore` only, after the diff check. (3) format job: documented it intentionally needs no `mix deps.get` (`.formatter.exs` has no `import_deps`). (4) added `mix docs` to Task 7 Step 5 (README/CHANGELOG feed docs). (5) spec "OTP 28" → "OTP 28.1+".
 
 **Type/name consistency:** `normalize_constant` consistent after rename; `constants`/`constant_of`/`value_of` match source and README; version `0.3.0` consistent across `mix.exs`, `CHANGELOG.md`, README, git tag; CI pairs are mutually compatible (1.15↔26, 1.16↔26, 1.17↔26, 1.18↔27, 1.19↔28).

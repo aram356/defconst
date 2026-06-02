@@ -111,7 +111,7 @@ behavior bug — stop and report before changing source.)
   1.15/1.16 jobs; `mix docs` is verified locally on 1.19. This keeps the `~> 1.15` floor honest.
 - Keep `elixir:` requirement at `~> 1.15` (verified by the 1.15/1.16 CI jobs).
 - Delete & regenerate `mix.lock`.
-- Build docs to confirm tooling works on OTP 28.
+- Build docs to confirm tooling works on OTP 28.1+.
 
 **Verify:** `mix test` green; `mix docs` builds; lockfile uses `earmark_parser`, not legacy `earmark`.
 
