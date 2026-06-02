@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - GitHub Actions CI across Elixir 1.15–1.19 / OTP 26–28 (test matrix + dedicated format job).
+- Automated Hex release workflow: publishing a GitHub Release (tag matching `@version`) publishes the package and docs via CI.
 - Pinned toolchain via `.tool-versions` (Elixir 1.19.5 / OTP 28.1+).
 - Test coverage for `constant_of/1` duplicate-value (list) and missing-value (`nil`) paths.
 - `CHANGELOG.md` (now shipped in the Hex package and rendered in the docs).

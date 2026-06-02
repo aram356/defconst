@@ -1,0 +1,35 @@
+name: Release
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    # Docs publishing needs the dev-only ex_doc, so this job runs on the version where
+    # ex_doc 0.40 builds and fetches dev deps (a full mix deps.get, not --only test).
+    steps:
+      - uses: actions/checkout@v4
+      - uses: erlef/setup-beam@v1
+        with:
+          elixir-version: "1.19"
+          otp-version: "28"
+
+      - name: Verify release tag matches mix.exs version
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          VSN=$(grep -oE '@version "[^"]+"' mix.exs | sed -E 's/.*"(.*)".*/\1/')
+          echo "release tag: $TAG"
+          echo "mix.exs @version: $VSN"
+          if [ "$TAG" != "$VSN" ]; then
+            echo "::error::Release tag ($TAG) does not match mix.exs @version ($VSN); aborting publish."
+            exit 1
+          fi
+
+      - run: mix deps.get
+
+      - name: Publish package and docs to Hex
+        run: mix hex.publish --yes
+        env:
+          HEX_API_KEY: ${{ secrets.HEX_API_KEY }}
