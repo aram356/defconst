@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [master]
+    branches: [main]
   pull_request:
-    branches: [master]
+    branches: [main]
 
 jobs:
   test:
@@ -49,26 +49,26 @@ jobs:
 
   format:
     runs-on: ubuntu-latest
-    name: Format (Elixir 1.19 / OTP 28)
+    name: Format (.tool-versions)
     steps:
       - uses: actions/checkout@v6
       - uses: erlef/setup-beam@v1
         with:
-          elixir-version: "1.19"
-          otp-version: "28"
+          version-file: .tool-versions
+          version-type: strict
       # No mix deps.get needed: .formatter.exs has no `import_deps`, so formatting
       # requires no dependencies. (If `import_deps:` is ever added, add `mix deps.get` here.)
       - run: mix format --check-formatted
 
   quality:
     runs-on: ubuntu-latest
-    name: Quality (Credo + Dialyzer, Elixir 1.19 / OTP 28)
+    name: Quality (Credo + Dialyzer, .tool-versions)
     steps:
       - uses: actions/checkout@v6
       - uses: erlef/setup-beam@v1
         with:
-          elixir-version: "1.19"
-          otp-version: "28"
+          version-file: .tool-versions
+          version-type: strict
       - name: Restore deps + PLT cache
         uses: actions/cache@v5
         with:

@@ -7,14 +7,14 @@ on:
 jobs:
   publish:
     runs-on: ubuntu-latest
-    # Docs publishing needs the dev-only ex_doc, so this job runs on the version where
-    # ex_doc 0.40 builds and fetches dev deps (a full mix deps.get, not --only test).
+    # Docs publishing needs the dev-only ex_doc; this job uses the pinned dev toolchain from
+    # .tool-versions and a full mix deps.get (not --only test).
     steps:
       - uses: actions/checkout@v6
       - uses: erlef/setup-beam@v1
         with:
-          elixir-version: "1.19"
-          otp-version: "28"
+          version-file: .tool-versions
+          version-type: strict
 
       - name: Verify release tag matches mix.exs version
         run: |

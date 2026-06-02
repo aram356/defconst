@@ -12,11 +12,11 @@ for constants and enums usable in guards. The core code is correct and idiomatic
 toolchain, dependencies, and config have aged out.
 
 **Published baseline (important):** The latest version on Hex is **0.2.5** (published
-2020-01-08). That release does **not** live on `master` — it sits on an unmerged branch
-`aram356/udpdate_ex_doc` (commit `7b91238`), two commits ahead of `master`. The
-`master..0.2.5` diff is small: a whitespace-only reformat of two doctest `@doc` heredocs,
+2020-01-08). That release does **not** live on `main` — it sits on an unmerged branch
+`aram356/udpdate_ex_doc` (commit `7b91238`), two commits ahead of `main`. The
+`main..0.2.5` diff is small: a whitespace-only reformat of two doctest `@doc` heredocs,
 the version bump to `0.2.5`, and an `ex_doc` resolution bump to `0.21.2` **in `mix.lock`
-only** — the `mix.exs` constraint stays `~> 0.20`. So `master` is **behind** what
+only** — the `mix.exs` constraint stays `~> 0.20`. So `main` is **behind** what
 is published. **All three introspection functions (`constants/0`, `constant_of/1`,
 `value_of/1`) already shipped in 0.2.5** — they are NOT new in 0.3.0.
 
@@ -45,7 +45,7 @@ so consumers are unaffected at runtime today. The work is low-risk modernization
 | Intent               | Revive & prepare for republish (broadest scope)                                                                                                                                                            |
 | Release version      | `0.3.0`                                                                                                                                                                                                    |
 | Changelog baseline   | "since **0.2.5**" (the published version)                                                                                                                                                                  |
-| Reconcile 0.2.5      | Bring `master` up to published 0.2.5 (`aram356/udpdate_ex_doc`) **via a PR**, not a direct push, then base the work branch on it. Locally fast-forward only to base the work; never push `master` directly |
+| Reconcile 0.2.5      | Bring `main` up to published 0.2.5 (`aram356/udpdate_ex_doc`) **via a PR**, not a direct push, then base the work branch on it. Locally fast-forward only to base the work; never push `main` directly |
 | Support floor        | **Keep `elixir: "~> 1.15"`**, made honest by testing 1.15 and 1.16 in CI                                                                                                                                   |
 | Verification         | Install Erlang/OTP locally **and** add CI (both)                                                                                                                                                           |
 | CI matrix            | Elixir 1.15/1.16/1.17/1.18/1.19 (pairs: 1.15/26, 1.16/26, 1.17/26, 1.18/27, 1.19/28)                                                                                                                       |
@@ -62,18 +62,18 @@ so consumers are unaffected at runtime today. The work is low-risk modernization
 Each workstream is independently verifiable. WS0 reconciles the published baseline; WS1
 establishes the green toolchain; WS2–6 are the changes; WS7 is delivery; WS8 is the gated publish.
 
-### 0. Reconcile published 0.2.5 onto master (via PR)
+### 0. Reconcile published 0.2.5 onto main (via PR)
 
-- Locally fast-forward `master` to `origin/aram356/udpdate_ex_doc` **only to base the work
-  branch on the published 0.2.5 state** — do not push `master` directly (respects branch
+- Locally fast-forward `main` to `origin/aram356/udpdate_ex_doc` **only to base the work
+  branch on the published 0.2.5 state** — do not push `main` directly (respects branch
   protection / the PR delivery model).
-- Reconcile `master` on the remote through a PR: either merge the existing
+- Reconcile `main` on the remote through a PR: either merge the existing
   `aram356/udpdate_ex_doc` branch via its own small PR, or fold those two commits into the
-  revival PR and call out that `master` was behind Hex.
+  revival PR and call out that `main` was behind Hex.
 - Rebase the `revive-and-modernize` work branch onto the reconciled 0.2.5 baseline.
 
-**Verify:** local `master`/work-branch base shows `@version "0.2.5"`; reconciliation is
-delivered through a PR, not a direct `git push origin master`.
+**Verify:** local `main`/work-branch base shows `@version "0.2.5"`; reconciliation is
+delivered through a PR, not a direct `git push origin main`.
 
 ### 1. Toolchain & green baseline
 
@@ -144,7 +144,7 @@ behavior bug — stop and report before changing source.)
 
 ### 7. Delivery (MR)
 
-- Push the branch; open a PR against `master` summarizing all workstreams; ensure CI passes.
+- Push the branch; open a PR against `main` summarizing all workstreams; ensure CI passes.
 
 **Verify:** PR opened, CI green, ready for review/merge.
 
@@ -171,5 +171,5 @@ behavior bug — stop and report before changing source.)
 - No deprecation warnings on current Elixir.
 - The `~> 1.15` support floor applies to **runtime and test** usage; doc generation (and
   thus a full dev `mix deps.get` that pulls dev-only ex_doc) is maintained on Elixir 1.19.
-- Repo `master` matches published 0.2.5 before 0.3.0 is layered on.
+- Repo `main` matches published 0.2.5 before 0.3.0 is layered on.
 - A `0.3.0` PR is merged and tagged, ready for the maintainer to publish to Hex.
