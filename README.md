@@ -20,7 +20,7 @@ Defconst can be installed by adding `defconst` to your list of dependencies in `
 ```elixir
 def deps do
   [
-    {:defconst, "~> 0.3.0"}
+    {:defconst, "~> 0.4.0"}
   ]
 end
 ```
@@ -155,6 +155,8 @@ end
 mix deps.get
 mix test
 mix format --check-formatted
+mix credo --strict
+mix dialyzer
 mix docs
 ```
 
