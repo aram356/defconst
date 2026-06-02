@@ -87,6 +87,7 @@ defmodule EnumType1 do
     :two
   ]
 end
+
 ```
 
 Use `EnumType1` module
@@ -141,11 +142,11 @@ defmodule TestEnumType3 do
   use Defconst
 
   defenum [
-            {:one, "one"},
-            {:nine, "nine"},
-            :ten
-          ],
-          EnumGenerator3
+    {:one, "one"},
+    {:nine, "nine"},
+    :ten
+  ],
+  EnumGenerator3
 end
 ```
 
