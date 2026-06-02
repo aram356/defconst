@@ -20,7 +20,7 @@ Defconst can be installed by adding `defconst` to your list of dependencies in `
 ```elixir
 def deps do
   [
-    {:defconst, "~> 0.3.0"}
+    {:defconst, "~> 0.4.0"}
   ]
 end
 ```
@@ -87,6 +87,7 @@ defmodule EnumType1 do
     :two
   ]
 end
+
 ```
 
 Use `EnumType1` module
@@ -141,11 +142,11 @@ defmodule TestEnumType3 do
   use Defconst
 
   defenum [
-            {:one, "one"},
-            {:nine, "nine"},
-            :ten
-          ],
-          EnumGenerator3
+    {:one, "one"},
+    {:nine, "nine"},
+    :ten
+  ],
+  EnumGenerator3
 end
 ```
 
@@ -155,20 +156,38 @@ end
 mix deps.get
 mix test
 mix format --check-formatted
+mix credo --strict
+mix dialyzer
 mix docs
 ```
 
 The toolchain is pinned in `.tool-versions` (Elixir 1.19.5 / OTP 28). CI runs the test suite
-across Elixir 1.15–1.19 / OTP 26–28 plus a formatting check.
+across Elixir 1.15–1.19 / OTP 26–28, a formatting check, and a quality job
+(`mix credo --strict` + `mix dialyzer`).
 
 ## Releasing
 
 Releases are published to Hex automatically by CI
 ([`.github/workflows/release.yml`](.github/workflows/release.yml)):
 
-1. Bump `@version` in `mix.exs` and update [`CHANGELOG.md`](CHANGELOG.md).
-2. Publish a GitHub Release whose tag matches the version (e.g. `v0.3.0`).
-3. CI verifies the tag matches `mix.exs` and runs `mix hex.publish` (package + docs).
+1. Bump `@version` in `mix.exs` and update [`CHANGELOG.md`](CHANGELOG.md); merge to `master`.
+2. Sync and confirm the merged `master` carries the target version:
+   ```sh
+   git fetch origin --tags
+   git show origin/master:mix.exs | grep '@version'   # expect the version you're releasing
+   ```
+3. Create the tag **on the released commit** and push it (don't let the Release UI auto-create
+   the tag — that can place it on the wrong commit):
+   ```sh
+   git tag vX.Y.Z origin/master
+   git push origin vX.Y.Z
+   ```
+4. Create the GitHub Release from that existing tag:
+   ```sh
+   gh release create vX.Y.Z --verify-tag --title "vX.Y.Z" --notes "See CHANGELOG.md"
+   ```
+5. CI (`release.yml`) re-verifies the tag matches `mix.exs` and runs `mix hex.publish`
+   (package + docs).
 
 This requires a `HEX_API_KEY` secret (a write-scoped Hex key) configured in the repository's
 Actions secrets.

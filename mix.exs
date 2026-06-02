@@ -1,7 +1,7 @@
 defmodule Defconst.MixProject do
   use Mix.Project
 
-  @version "0.3.0"
+  @version "0.4.0"
 
   def project do
     [
@@ -18,12 +18,16 @@ defmodule Defconst.MixProject do
 
       # Docs
       docs: [
-        extras: ["README.md", "CHANGELOG.md"],
+        extras: ["README.md", "CHANGELOG.md", "LICENSE"],
         main: "Defconst"
       ],
       homepage_url: "https://github.com/aram356/defconst",
       name: "Defconst",
-      source_url: "https://github.com/aram356/defconst"
+      source_url: "https://github.com/aram356/defconst",
+      dialyzer: [
+        plt_local_path: "_build/plts",
+        plt_core_path: "_build/plts"
+      ]
     ]
   end
 
@@ -40,7 +44,11 @@ defmodule Defconst.MixProject do
   end
 
   defp deps do
-    [{:ex_doc, "~> 0.40", only: :dev, runtime: false}]
+    [
+      {:ex_doc, "~> 0.40", only: :dev, runtime: false},
+      {:credo, "~> 1.7", only: :dev, runtime: false},
+      {:dialyxir, "~> 1.4", only: :dev, runtime: false}
+    ]
   end
 
   # Specifies which paths to compile per environment.
