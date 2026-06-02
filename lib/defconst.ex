@@ -149,6 +149,7 @@ defmodule Defconst do
   """
   defmacro defconst(name, value) do
     caller_module = __CALLER__.module
+    register_name!(caller_module, name, __CALLER__)
     var = Macro.var(name, __MODULE__)
 
     quote do
@@ -283,5 +284,23 @@ defmodule Defconst do
     Enum.reduce(constants, %{}, fn {constant, value}, map ->
       Map.update(map, value, [constant], &(&1 ++ [constant]))
     end)
+  end
+
+  # Runs at `defconst` expansion time (names are literal atoms), so a duplicate name raises
+  # before the second macro/@doc clause is emitted — no "clause cannot match" warning noise.
+  # Tracks seen names in a plain list attribute managed entirely at expansion time (it does not
+  # rely on `use`-time `register_attribute`, which has not run yet when the first `defconst`
+  # expands).
+  defp register_name!(module, name, caller) do
+    seen = Module.get_attribute(module, :defconst_names) || []
+
+    if name in seen do
+      raise CompileError,
+        file: caller.file,
+        line: caller.line,
+        description: "Defconst: duplicate constant name: #{inspect(name)}"
+    end
+
+    Module.put_attribute(module, :defconst_names, [name | seen])
   end
 end
