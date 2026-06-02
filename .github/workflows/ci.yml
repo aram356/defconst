@@ -1,0 +1,61 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      MIX_ENV: test
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - elixir: "1.15"
+            otp: "26"
+          - elixir: "1.16"
+            otp: "26"
+          - elixir: "1.17"
+            otp: "26"
+          - elixir: "1.18"
+            otp: "27"
+          - elixir: "1.19"
+            otp: "28"
+    name: Test (Elixir ${{ matrix.elixir }} / OTP ${{ matrix.otp }})
+    steps:
+      - uses: actions/checkout@v4
+      - uses: erlef/setup-beam@v1
+        with:
+          elixir-version: ${{ matrix.elixir }}
+          otp-version: ${{ matrix.otp }}
+      - name: Restore deps cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            deps
+            _build
+          key: ${{ runner.os }}-mix-${{ matrix.elixir }}-${{ matrix.otp }}-${{ hashFiles('**/mix.lock') }}
+          restore-keys: ${{ runner.os }}-mix-${{ matrix.elixir }}-${{ matrix.otp }}-
+      # Job-level MIX_ENV=test means compile/test never expect the dev-only ex_doc dep.
+      # --only test excludes ex_doc from resolution, so no deps the lib doesn't ship are pulled.
+      - run: mix deps.get --only test
+      # Consumer path: compile the library + run tests with runtime deps only (there are none).
+      - run: mix compile
+      - run: mix test
+
+  format:
+    runs-on: ubuntu-latest
+    name: Format (Elixir 1.19 / OTP 28)
+    steps:
+      - uses: actions/checkout@v4
+      - uses: erlef/setup-beam@v1
+        with:
+          elixir-version: "1.19"
+          otp-version: "28"
+      # No mix deps.get needed: .formatter.exs has no `import_deps`, so formatting
+      # requires no dependencies. (If `import_deps:` is ever added, add `mix deps.get` here.)
+      - run: mix format --check-formatted
