@@ -11,6 +11,8 @@ jobs:
     # .tool-versions and a full mix deps.get (not --only test).
     steps:
       - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0 # full history so the "on main" ancestry check below works
       - uses: erlef/setup-beam@v1
         with:
           version-file: .tool-versions
@@ -26,6 +28,15 @@ jobs:
             echo "::error::Release tag ($TAG) does not match mix.exs @version ($VSN); aborting publish."
             exit 1
           fi
+
+      - name: Verify the released commit is on main
+        run: |
+          git fetch --no-tags origin main
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "::error::Released commit $GITHUB_SHA is not on origin/main; refusing to publish an off-mainline release."
+            exit 1
+          fi
+          echo "Released commit $GITHUB_SHA is on origin/main."
 
       - run: mix deps.get
 
